@@ -125,6 +125,28 @@ class AssociationSet(Type):
         else:
             raise TypeError("Supplied parameter must be an Association or AssociationSet.")
 
+    def add(self, association):
+        if association is None:
+            return
+        elif isinstance(association, Association):
+            self.associations.add(association)
+        elif isinstance(association, AssociationSet):
+            for component in association:
+                self.add(component)
+        else:
+            raise TypeError("Supplied parameter must be an Association or AssociationSet")
+
+    def remove(self, association):
+        if association is None:
+            return
+        elif isinstance(association, Association):
+            self.associations.remove(association)
+        elif isinstance(association, AssociationSet):
+            for component in association:
+                self.remove(component)
+        else:
+            raise TypeError("Supplied parameter must be an Association or AssociationSet")
+
     @property
     def key_times(self):
         """Returns all timestamps at which a component starts or ends, or where there is a
