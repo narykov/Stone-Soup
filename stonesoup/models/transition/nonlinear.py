@@ -1,7 +1,8 @@
 import copy
 from typing import Sequence
 import numpy as np
-from scipy.linalg import block_diag
+from scipy.linalg import block_diag, expm
+import torch
 
 from ...types.array import StateVector, StateVectors
 from .base import TransitionModel
@@ -213,3 +214,77 @@ class ConstantTurnSandwich(ConstantTurn):
         C_t[-3:, 0:2] = C_ct[-3:, 0:2]
 
         return CovarianceMatrix(C_t)
+
+
+class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
+    linear_noise_coeffs: np.ndarray = Property(
+        doc=r"The acceleration noise diffusion coefficients :math:`[q_x, \: q_y, \: q_z]^T`")
+    diff_equation: staticmethod = Property(doc=r"Differential equation describing the force model")
+
+    @property
+    def ndim_state(self):
+        """ndim_state getter method
+
+        Returns
+        -------
+        : :class:`int`
+            The number of combined model state dimensions.
+        """
+        return 6
+
+    def _get_jacobian(f, state):
+        nx = len(state)
+        A = np.zeros([nx, nx])
+        state_input = [i for i in state]
+
+        jacrows = torch.autograd.functional.jacobian(f, torch.tensor(state_input))
+        for i, r in enumerate(jacrows):
+            A[i] = r
+
+        return (A)
+
+    def _do_linearise(self, da, dQ, x, dt):
+        dA = self._get_jacobian(da, x)
+        A = expm(dA * dt)
+        nx = len(x)
+
+        # Get \int e^{dA*s}\,ds
+        int_eA = expm(dt * np.block([[dA, np.identity(nx)], [np.zeros([nx, 2 * nx])]]))[:nx, nx:]
+
+        # Get Q
+        G = expm(dt * np.block([[-dA, dQ], [np.zeros([nx, nx]), np.transpose(dA)]]))
+        Q = np.transpose(G[nx:, nx:]) @ (G[:nx, nx:])
+        Q = (Q + np.transpose(Q)) / 2.
+
+        # Get new value of x
+        x = [i for i in x]
+        newx = x + int_eA @ da(torch.tensor(x))
+
+        return newx, A, Q
+
+    def jacobian(self, state, **kwargs):
+        da = self.diff_equation
+        dA = self._get_jacobian(da, state)
+        dt = kwargs['time_interval'].total_seconds()
+        A = expm(dA * dt)
+
+        return A
+
+    def function(self, state, noise=False, **kwargs) -> StateVector:
+        if isinstance(noise, bool) or noise is None:
+            if noise:
+                noise = self.rvs(**kwargs)
+            else:
+                noise = 0
+
+        return self.jacobian(state, **kwargs) @ state.state_vector + noise
+
+    def covar(self, time_interval, **kwargs):
+        dt = time_interval.total_seconds()
+        sv1 = kwargs['prior'].state_vector
+        da = self.diff_equation
+        q_xdot, q_ydot, q_zdot = self.linear_noise_coeffs
+        dQ = np.diag([0., q_xdot, 0., q_ydot, 0., q_zdot])
+        _, _, C = self._do_linearise(da, dQ, sv1, dt)
+
+        return CovarianceMatrix(C)
