@@ -232,7 +232,8 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         """
         return 6
 
-    def _get_jacobian(f, state):
+    def _get_jacobian(self, f, x):
+        state = x.state_vector
         nx = len(state)
         A = np.zeros([nx, nx])
         state_input = [i for i in state]
@@ -244,9 +245,9 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         return (A)
 
     def _do_linearise(self, da, dQ, x, dt):
-        dA = self._get_jacobian(da, x)
+        dA = self._get_jacobian(da, x)  # state here is GroundTruthState
         A = expm(dA * dt)
-        nx = len(x)
+        nx = len(x.state_vector)
 
         # Get \int e^{dA*s}\,ds
         int_eA = expm(dt * np.block([[dA, np.identity(nx)], [np.zeros([nx, 2 * nx])]]))[:nx, nx:]
@@ -257,14 +258,14 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         Q = (Q + np.transpose(Q)) / 2.
 
         # Get new value of x
-        x = [i for i in x]
+        x = [i for i in x.state_vector]
         newx = x + int_eA @ da(torch.tensor(x))
 
         return newx, A, Q
 
     def jacobian(self, state, **kwargs):
         da = self.diff_equation
-        dA = self._get_jacobian(da, state)
+        dA = self._get_jacobian(da, state)  # state here is GroundTruthState
         dt = kwargs['time_interval'].total_seconds()
         A = expm(dA * dt)
 
@@ -281,7 +282,7 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
 
     def covar(self, time_interval, **kwargs):
         dt = time_interval.total_seconds()
-        sv1 = kwargs['prior'].state_vector
+        sv1 = kwargs['prior']
         da = self.diff_equation
         q_xdot, q_ydot, q_zdot = self.linear_noise_coeffs
         dQ = np.diag([0., q_xdot, 0., q_ydot, 0., q_zdot])
