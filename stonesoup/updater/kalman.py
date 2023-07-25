@@ -363,7 +363,7 @@ class UnscentedKalmanUpdater(KalmanUpdater):
             "3-Ns")
 
     @lru_cache()
-    def predict_measurement(self, predicted_state, measurement_model=None):
+    def predict_measurement(self, predicted_state, measurement_model=None, **kwargs):
         """Unscented Kalman Filter measurement prediction step. Uses the
         unscented transform to estimate a Gauss-distributed predicted
         measurement.
