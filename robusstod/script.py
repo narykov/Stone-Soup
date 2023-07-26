@@ -59,13 +59,13 @@ def get_initial_states(n_targets=None, population_mean=None, population_covarian
     return ground_truth_states
 
 
-def get_groundtruth_paths(initial_target_states, timesteps):
+def get_groundtruth_paths(initial_target_states=None, timesteps=None):
     groundtruth_paths = OrderedSet()
-    successive_time_steps = timesteps[1:]  #
+    successive_time_steps = timesteps[1:]  # dropping the very first start_time
     for initial_target_state in initial_target_states:
         truth = GroundTruthPath(initial_target_state)
         for timestamp in successive_time_steps:
-            interval = timestamp-truth[-1].timestamp
+            interval = timestamp - truth[-1].timestamp
             truth.append(
                 GroundTruthState(transition_model.function(
                     state=truth[-1],
@@ -149,6 +149,52 @@ def get_observation_histories(truths, timesteps, measurement_model, sensor_param
     return observation_histories
 
 
+def do_JPDA(observation_history, data_associator):
+
+    tracks = set()
+    for prior_pdf in priors:
+        tracks.add(Track([prior_pdf]))
+
+    try:
+        assert len(timesteps) == len(observation_history)  # check if the following for loop makes sense
+    except AssertionError:
+        print('Cardinalities should match. Possibly, no observations collected at one of the time steps.')
+
+    for timestep, observation in zip(timesteps, observation_history):
+        # NB: Observation is understood here as a set of measurements and false alarms.
+        hypotheses = data_associator.associate(
+            tracks, observation, timestep, allow_singular=True
+        )
+
+        # Loop through each track, performing the association step with weights adjusted according to JPDA.
+        for track in tracks:
+            track_hypotheses = hypotheses[track]
+
+            posterior_states = []
+            posterior_state_weights = []
+            for hypothesis in track_hypotheses:
+                if not hypothesis:
+                    posterior_states.append(hypothesis.prediction)
+                else:
+                    posterior_state = data_associator.hypothesiser.updater.update(hypothesis)
+                    posterior_states.append(posterior_state)
+                posterior_state_weights.append(hypothesis.probability)
+
+            means = StateVectors([state.state_vector for state in posterior_states])
+            covars = np.stack([state.covar for state in posterior_states], axis=2)
+            weights = np.asarray(posterior_state_weights)
+
+            # Reduce mixture of states to one posterior estimate Gaussian.
+            post_mean, post_covar = gm_reduce_single(means, covars, weights)
+
+            # Add a Gaussian state approximation to the track.
+            track.append(
+                GaussianStateUpdate(post_mean, post_covar, track_hypotheses, timestep)
+            )
+
+    return tracks
+
+
 if __name__ == "__main__":
 
     start_time = datetime(2000, 1, 1)
@@ -186,7 +232,7 @@ if __name__ == "__main__":
     )
     priors = get_priors(initial_states, scenario_parameters['target_initial_covariance'], start_time)  # for tracking
     timesteps = [start_time + k * scenario_parameters['time_interval'] for k in range(scenario_parameters['n_time_steps'])]
-    truths = get_groundtruth_paths(initial_states, timesteps)
+    truths = get_groundtruth_paths(initial_target_states=initial_states, timesteps=timesteps)
 
     # Generate measurements
     sigma_el, sigma_b, sigma_range = np.deg2rad(0.01), np.deg2rad(0.01), 100
@@ -222,52 +268,13 @@ if __name__ == "__main__":
     data_associator = JPDA(hypothesiser=hypothesiser)
 
     for observation_history in observation_histories:
-        tracks = set()
-        for prior_pdf in priors:
-            tracks.add(Track([prior_pdf]))
-
-        try:
-            assert len(timesteps) == len(observation_history)  # check if the following for loop makes sense
-        except AssertionError:
-            print('Cardinalities should match. Possibly, no observations collected at one of the time steps.')
-
-        for timestep, observation in zip(timesteps, observation_history):
-            # NB: Observation here is a set of measurements and false alarms.
-            hypotheses = data_associator.associate(
-                tracks, observation, timestep, allow_singular=True
-            )
-
-            # Loop through each track, performing the association step with weights adjusted according to JPDA.
-            for track in tracks:
-                track_hypotheses = hypotheses[track]
-
-                posterior_states = []
-                posterior_state_weights = []
-                for hypothesis in track_hypotheses:
-                    if not hypothesis:
-                        posterior_states.append(hypothesis.prediction)
-                    else:
-                        posterior_state = updater.update(hypothesis)
-                        posterior_states.append(posterior_state)
-                    posterior_state_weights.append(hypothesis.probability)
-
-                means = StateVectors([state.state_vector for state in posterior_states])
-                covars = np.stack([state.covar for state in posterior_states], axis=2)
-                weights = np.asarray(posterior_state_weights)
-
-                # Reduce mixture of states to one posterior estimate Gaussian.
-                post_mean, post_covar = gm_reduce_single(means, covars, weights)
-
-                # Add a Gaussian state approximation to the track.
-                track.append(
-                    GaussianStateUpdate(post_mean, post_covar, track_hypotheses, timestep)
-                )
+        tracks_JPDA = do_JPDA(observation_history, data_associator)
 
 
     plotter = Plotterly()
     plotter.plot_ground_truths(truths, [0, 2], line=dict(dash="dash", color='black'))
-    plotter.plot_measurements(observation_history, [0, 2])
-    plotter.plot_tracks(tracks, [0, 2], uncertainty=True)
+    plotter.plot_measurements(observation_histories[0], [0, 2])
+    plotter.plot_tracks(tracks_JPDA, [0, 2], uncertainty=True)
     plotter.fig.show()
 
 
