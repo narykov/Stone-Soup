@@ -274,7 +274,7 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
     def function(self, state, noise=False, **kwargs) -> StateVector:
         if isinstance(noise, bool) or noise is None:
             if noise:
-                noise = self.rvs(**kwargs)
+                noise = self.rvs(prior=state, **kwargs)
             else:
                 noise = 0
 
