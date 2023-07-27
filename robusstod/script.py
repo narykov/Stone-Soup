@@ -32,8 +32,9 @@ from astropy.constants import G, M_earth, R_earth
 from stonesoup.updater.kalman import IPLFKalmanUpdater
 from stonesoup.models.transition.nonlinear import LinearisedDiscretisation
 
-from misc import KeplerianToCartesian
-from misc import twoBody3d_da
+from funcs_basic import KeplerianToCartesian
+from funcs_basic import twoBody3d_da
+
 
 def get_noise_coefficients():
     """ A function that returns adequate noise coefficients for Van Loan's method, ideally from physical considerations.
