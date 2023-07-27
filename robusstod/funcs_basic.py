@@ -1,14 +1,13 @@
 import numpy as np
 import torch
-from astropy.constants import G, M_earth, R_earth
 
 
-def KeplerianToCartesian(K, E):
-    # elements need to be in radians
+def KeplerianToCartesian(K, GM, ndim, mapping_position, mapping_velocity):
+    """ Based on KeplerianToCartesian from https://github.com/alecksphillips/SatelliteModel/blob/main/transforms.py """
 
-    GM = G.value * M_earth.value
+    a, e, i, w, omega, nu = K[:]  # elements i, w, omega, nu need to be in radians, a in metres
 
-    a, e, i, w, omega, nu = K[:]
+    E = np.arctan2(np.sqrt(1 - e ** 2) * np.sin(nu), e + np.cos(nu))
 
     x = a * (np.cos(E) - e)
     y = a * np.sqrt(1 - e * e) * np.sin(E)
@@ -27,17 +26,17 @@ def KeplerianToCartesian(K, E):
 
     [U, V, W] = x_dot * P + y_dot * Q
 
-    # p = [X, Y, Z, U, V, W]
-    p = [X, U, Y, V, Z, W]
+    state_vector = np.zeros(ndim)
+    state_vector[[mapping_position]] = [X, Y, Z]
+    state_vector[[mapping_velocity]] = [U, V, W]
 
-    return p
+    return state_vector
 
 
-def twoBody3d_da(state):
-    GM = G.value * M_earth.value
-    try:
-        (x, x_dot, y, y_dot, z, z_dot) = state
-    except:
-        breakpoint()
+def twoBody3d_da(state, GM=None):
+    if GM is None:
+        GM = 398600400000000.0
+
+    (x, x_dot, y, y_dot, z, z_dot) = state
     r_pow_3 = torch.float_power(torch.linalg.vector_norm(torch.tensor((x, y, z))), 3)
     return (x_dot, -GM * x / r_pow_3, y_dot, -GM * y / r_pow_3, z_dot, -GM * z / r_pow_3)

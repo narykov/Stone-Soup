@@ -36,12 +36,10 @@ from funcs_basic import KeplerianToCartesian
 from funcs_basic import twoBody3d_da
 
 
-def get_noise_coefficients():
+def get_noise_coefficients(GM):
     """ A function that returns adequate noise coefficients for Van Loan's method, ideally from physical considerations.
     We need these values that drive the process noise in the prediction step.
     """
-
-    GM = G.value * M_earth.value  # 4e14
     # ratio = 1e-2  # 2 orders are suggested by Simon following a Lee's manuscript
     ratio = 1e-14  # otherwise it `lands in Bolivia'
     st_dev = ratio * GM
@@ -60,7 +58,7 @@ def get_initial_states(n_targets=None, population_mean=None, population_covarian
     return ground_truth_states
 
 
-def get_groundtruth_paths(initial_target_states=None, timesteps=None):
+def get_groundtruth_paths(initial_target_states=None, transition_model=None, timesteps=None):
     groundtruth_paths = OrderedSet()
     successive_time_steps = timesteps[1:]  # dropping the very first start_time
     for initial_target_state in initial_target_states:
@@ -189,9 +187,7 @@ def do_JPDA(observation_history, data_associator):
             post_mean, post_covar = gm_reduce_single(means, covars, weights)
 
             # Add a Gaussian state approximation to the track.
-            track.append(
-                GaussianStateUpdate(post_mean, post_covar, track_hypotheses, timestep)
-            )
+            track.append(GaussianStateUpdate(post_mean, post_covar, track_hypotheses, timestep))
 
     return tracks
 
@@ -202,17 +198,14 @@ if __name__ == "__main__":
     np.random.seed(1991)
 
     # We begin by specifying the mean state of a target population by picking a credible set of Keplerian elements.
-    a, e, i, w, Omega, nu = (9164000, 0.03, 70, 0, 0, 0)  # keplerian elements of a reference point (a is in metres)
-    K = [a, e, np.radians(i), np.radians(w), np.radians(Omega), np.radians(nu)]  # in SI units
-    E = np.arctan2(np.sqrt(1 - e**2) * np.sin(np.radians(nu)), e + np.cos(np.radians(nu)))
-    population_mean = np.array(KeplerianToCartesian(K, E))  # convert to Cartesian using Gemma's code
-
-    transition_model = LinearisedDiscretisation(
-        diff_equation=twoBody3d_da,
-        linear_noise_coeffs=get_noise_coefficients()
-    )
-
-
+    a, e, i, w, omega, nu = (9164, 0.03, 70, 0, 0, 0)  # (km, _, deg, deg, deg, deg)
+    # coe = np.array([a, e, I, RAAN, argP, ta])
+    K = np.array([a * 1000, e, np.radians(i), np.radians(w), np.radians(omega), np.radians(nu)])  # in SI units
+    ndim_state = 6
+    mapping_position = (0, 2, 4)  # encodes positions of location in the state vector
+    mapping_velocity = (1, 3, 5)  # encodes positions of velocity in the state vector
+    GM = G.value * M_earth.value  # https://en.wikipedia.org/wiki/Standard_gravitational_parameter (m^3 s^−2)
+    population_mean = KeplerianToCartesian(K, GM, ndim_state, mapping_position, mapping_velocity)  # convert to Cartesian using Gemma's code
     population_covariance = np.diag([150000 ** 2, 100 ** 2, 150000 ** 2, 100 ** 2, 150000 ** 2, 100 ** 2])
     target_initial_covariance = np.diag([50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2])
     scenario_parameters = {
@@ -233,7 +226,11 @@ if __name__ == "__main__":
     )
     priors = get_priors(initial_states, scenario_parameters['target_initial_covariance'], start_time)  # for tracking
     timesteps = [start_time + k * scenario_parameters['time_interval'] for k in range(scenario_parameters['n_time_steps'])]
-    truths = get_groundtruth_paths(initial_target_states=initial_states, timesteps=timesteps)
+    transition_model = LinearisedDiscretisation(
+        diff_equation=twoBody3d_da,
+        linear_noise_coeffs=get_noise_coefficients(GM)
+    )
+    truths = get_groundtruth_paths(initial_target_states=initial_states, transition_model=transition_model, timesteps=timesteps)
 
     # Generate measurements
     sigma_el, sigma_b, sigma_range = np.deg2rad(0.01), np.deg2rad(0.01), 100
@@ -242,8 +239,8 @@ if __name__ == "__main__":
         'prob_detect': 1,
         'clutter_rate': 3,
         'clutter_spatial_density': 0.125 * 0.00001,
-        'ndim_state': 6,
-        'mapping': (0, 2, 4),
+        'ndim_state': ndim_state,
+        'mapping': mapping_position,
         'noise_covar': np.diag([sigma_el ** 2, sigma_b ** 2, sigma_range ** 2]),
         'translation_offset': np.array([[sensor_x], [sensor_y], [sensor_z]])
     }
