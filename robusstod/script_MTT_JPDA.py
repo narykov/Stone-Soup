@@ -32,8 +32,15 @@ from astropy.constants import G, M_earth, R_earth
 from stonesoup.updater.kalman import IPLFKalmanUpdater
 from stonesoup.models.transition.nonlinear import LinearisedDiscretisation
 
-from funcs_basic import KeplerianToCartesian
-from funcs_basic import twoBody3d_da
+
+using_godot = False
+
+if using_godot:
+    from funcs_godot import KeplerianToCartesian
+    from funcs_godot import twoBody3d_da
+else:
+    from funcs_basic import KeplerianToCartesian
+    from funcs_basic import twoBody3d_da
 
 
 def get_noise_coefficients(GM):
@@ -48,7 +55,7 @@ def get_noise_coefficients(GM):
     return np.array([q_xdot, q_ydot, q_zdot])
 
 
-def get_initial_states(n_targets=None, population_mean=None, population_covariance=None, start_time=None):
+def get_initial_states(n_targets=None, population_mean=None, population_covariance=None, start_time=None, **kwargs):
     """We sample n_targets initial states from the Gaussian distribution"""
     ground_truth_states = []
     for _ in range(n_targets):
@@ -58,7 +65,7 @@ def get_initial_states(n_targets=None, population_mean=None, population_covarian
     return ground_truth_states
 
 
-def get_groundtruth_paths(initial_target_states=None, transition_model=None, timesteps=None):
+def get_groundtruth_paths(initial_target_states=None, transition_model=None, timesteps=None, noise=False):
     groundtruth_paths = OrderedSet()
     successive_time_steps = timesteps[1:]  # dropping the very first start_time
     for initial_target_state in initial_target_states:
@@ -68,7 +75,7 @@ def get_groundtruth_paths(initial_target_states=None, transition_model=None, tim
             truth.append(
                 GroundTruthState(transition_model.function(
                     state=truth[-1],
-                    noise=True,
+                    noise=noise,
                     time_interval=interval),
                     timestamp=timestamp
                 )
@@ -197,21 +204,27 @@ if __name__ == "__main__":
     start_time = datetime(2000, 1, 1)
     np.random.seed(1991)
 
-    # We begin by specifying the mean state of a target population by picking a credible set of Keplerian elements.
-    a, e, i, w, omega, nu = (9164, 0.03, 70, 0, 0, 0)  # (km, _, deg, deg, deg, deg)
-    # coe = np.array([a, e, I, RAAN, argP, ta])
-    K = np.array([a * 1000, e, np.radians(i), np.radians(w), np.radians(omega), np.radians(nu)])  # in SI units
+    # We begin by specifying the mean state of a target population by picking a credible set of Keplerian elements, and
+    # then converting them into Cartesian domain.
+
+    a, e, i, w, omega, nu = (9164000, 0.03, 70, 0, 0, 0)
+    # the values above from Gemma https://github.com/alecksphillips/SatelliteModel/blob/main/Stan-InitialStateTarget.py
+    # a, e, i, w, omega, nu (m, _, deg, deg, deg, deg)
+    # NB: a, e, I, RAAN, argP, ta (km, _, rad, rad, rad, rad) as in https://godot.io.esa.int/tutorials/T04_Astro/T04scv/
+    K = np.array([a, e, np.radians(i), np.radians(w), np.radians(omega), np.radians(nu)])  # now in SI units (m & rad)
     ndim_state = 6
-    mapping_position = (0, 2, 4)  # encodes positions of location in the state vector
-    mapping_velocity = (1, 3, 5)  # encodes positions of velocity in the state vector
+    mapping_location = (0, 2, 4)  # encodes location indices in the state vector
+    mapping_velocity = (1, 3, 5)  # encodes velocity indices in the state vector
     GM = G.value * M_earth.value  # https://en.wikipedia.org/wiki/Standard_gravitational_parameter (m^3 s^−2)
-    population_mean = KeplerianToCartesian(K, GM, ndim_state, mapping_position, mapping_velocity)  # convert to Cartesian using Gemma's code
+    population_mean = KeplerianToCartesian(K, GM, ndim_state, mapping_location, mapping_velocity)  # into Cartesian
+
     population_covariance = np.diag([150000 ** 2, 100 ** 2, 150000 ** 2, 100 ** 2, 150000 ** 2, 100 ** 2])
     target_initial_covariance = np.diag([50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2])
+
     scenario_parameters = {
         'n_mc_runs': 1,
-        'time_interval': timedelta(seconds=10),
-        'n_time_steps': 5,
+        'time_interval': timedelta(seconds=50),
+        'n_time_steps': 10,
         'n_targets': 5,
         'population_mean': population_mean,
         'population_covariance': population_covariance,
@@ -224,13 +237,19 @@ if __name__ == "__main__":
         population_covariance=scenario_parameters['population_covariance'],
         start_time=start_time
     )
+
     priors = get_priors(initial_states, scenario_parameters['target_initial_covariance'], start_time)  # for tracking
     timesteps = [start_time + k * scenario_parameters['time_interval'] for k in range(scenario_parameters['n_time_steps'])]
     transition_model = LinearisedDiscretisation(
         diff_equation=twoBody3d_da,
         linear_noise_coeffs=get_noise_coefficients(GM)
     )
-    truths = get_groundtruth_paths(initial_target_states=initial_states, transition_model=transition_model, timesteps=timesteps)
+    truths = get_groundtruth_paths(
+        initial_target_states=initial_states,
+        transition_model=transition_model,
+        timesteps=timesteps,
+        noise=True
+    )
 
     # Generate measurements
     sigma_el, sigma_b, sigma_range = np.deg2rad(0.01), np.deg2rad(0.01), 100
@@ -240,7 +259,7 @@ if __name__ == "__main__":
         'clutter_rate': 3,
         'clutter_spatial_density': 0.125 * 0.00001,
         'ndim_state': ndim_state,
-        'mapping': mapping_position,
+        'mapping': mapping_location,
         'noise_covar': np.diag([sigma_el ** 2, sigma_b ** 2, sigma_range ** 2]),
         'translation_offset': np.array([[sensor_x], [sensor_y], [sensor_z]])
     }
@@ -265,80 +284,14 @@ if __name__ == "__main__":
     )
     data_associator = JPDA(hypothesiser=hypothesiser)
 
+    tracks_JPDA_list = []
     for observation_history in observation_histories:
         tracks_JPDA = do_JPDA(observation_history, data_associator)
-
+        tracks_JPDA_list.append(tracks_JPDA)
 
     plotter = Plotterly()
     plotter.plot_ground_truths(truths, [0, 2], line=dict(dash="dash", color='black'))
-    plotter.plot_measurements(observation_histories[0], [0, 2])
-    plotter.plot_tracks(tracks_JPDA, [0, 2], uncertainty=True)
+    mc_run_to_plot = 0
+    plotter.plot_measurements(observation_histories[mc_run_to_plot], [0, 2])
+    plotter.plot_tracks(tracks_JPDA_list[mc_run_to_plot], [0, 2], uncertainty=True)
     plotter.fig.show()
-
-
-# """ OLD """
-# iplf_outs = np.zeros((1, ntimesteps+1))
-# ipls_outs = np.zeros((1, ntimesteps+1))
-# iekf_outs = np.zeros((1, ntimesteps+1))
-# smoother_ukf = UnscentedKalmanSmoother(transition_model)
-#
-# bias = np.linalg.cholesky(P_0).T @ np.random.normal(size=target_state_0.shape)  # GroundTruth+chol(P0)’*randn
-# bias = np.array([-122068.01433784,     69.37315652,    507.76211348,    -86.74038986, -58321.63970861,     89.04789997])
-# prior = GaussianStatePrediction(target_state_0 + bias, P_0, timestamp=timesteps[0])
-#
-# for all_measurements in measurements_sets:
-#     track_iekf = doPDA(all_measurements, transition_model, prior, IteratedKalmanUpdater(max_iterations=5))
-#     track_iplf = doPDA(all_measurements, transition_model, prior, IPLFKalmanUpdater())
-#     # track_iekf = doIEKF(all_measurements, transition_model, prior)
-#     # # track_iekf = doIEKF(all_measurements, transition_model, prior)
-#     # track_iplf = doIPLF(all_measurements, transition_model, prior)
-#     # # track_iplf = doIPLF(all_measurements, transition_model, prior)
-#     # # track_ipls = smoother_kf.smooth(track_iplf)
-#     track_ipls = doIPLS(track_iplf, transition_model, measurement_model, 1)
-#     euclidean_iekf = [Euclidean([0, 2, 4])(*pair)**2 for pair in zip(track_iekf, truth)]
-#     euclidean_iplf = [Euclidean([0, 2, 4])(*pair)**2 for pair in zip(track_iplf, truth)]
-#     euclidean_ipls = [Euclidean([0, 2, 4])(*pair)**2 for pair in zip(track_ipls, truth)]
-#
-#     iekf_outs += np.array(euclidean_iekf)/n_mc_runs
-#     iplf_outs += np.array(euclidean_iplf)/n_mc_runs
-#     ipls_outs += np.array(euclidean_ipls)/n_mc_runs
-#
-#
-#     # out_iekf = TimeRangeMetric(
-#     #     title='Euclidean distances IEKF',
-#     #     value=euclidean_iekf,
-#     #     time_range=TimeRange(min(truth[0].timestamp), max(truth[-1].timestamp)))
-#     #
-#     # iekf_outs.append(euclidean_iekf)
-#     # iplf_outs.append(euclidean_iplf)
-#
-# fig, axes = plt.subplots(figsize=(10, 5))
-# plt.plot(np.sqrt(euclidean_ipls), label='IPLS', color='blue')
-# plt.plot(np.sqrt(euclidean_iplf), label='IPLF', color='green')
-# plt.plot(np.sqrt(euclidean_iekf), label='IEKF', color='red')
-# plt.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
-# plt.grid(visible=None, which='major', axis='both')
-# plt.xlabel('Time step')
-# plt.ylabel('RMS position error')
-# plt.legend()
-# # plt.show()
-#
-#
-# plotter = Plotterly()
-# plotter.plot_tracks(Track(prior), [0, 2], uncertainty=True, track_label='Prior', marker=dict(symbol='star', color='grey'), line=dict(color='white'))
-# plotter.plot_tracks(truth, [0, 2], track_label='Ground truth', line=dict(dash="dash", color='black'))
-# plotter.plot_tracks(track_ipls, [0, 2], uncertainty=True, track_label='IPLS', line=dict(color='blue'))
-# plotter.plot_tracks(track_iplf, [0, 2], uncertainty=True, track_label='IPLF', line=dict(color='green'))
-# plotter.plot_tracks(track_iekf, [0, 2], uncertainty=True, track_label='IEKF', line=dict(color='red'))
-# plotter.plot_measurements(all_measurements, [0, 2])
-#
-#
-# # plotter.plot_tracks(track, [0, 2], uncertainty=True, track_label='IPLS(1)-0, i.e. UKF')
-# # plotter.plot_tracks(track_smoothed_ukf, [0, 2], uncertainty=True, track_label='IPLS(1)-1, i.e. U-RTS smoother')
-# # # plotter.plot_tracks(track_smoothed_ipls1_5, [0, 2], uncertainty=True, track_label='IPLS(1)-5')
-# # # plotter.plot_tracks(track_smoothed_ipls1_10, [0, 2], uncertainty=True, track_label='IPLS(1)-10')
-# # plotter.fig
-# # plotter.fig.show()
-# plotter.fig.show()
-#
-# print()

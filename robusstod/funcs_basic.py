@@ -39,4 +39,6 @@ def twoBody3d_da(state, GM=None):
 
     (x, x_dot, y, y_dot, z, z_dot) = state
     r_pow_3 = torch.float_power(torch.linalg.vector_norm(torch.tensor((x, y, z))), 3)
-    return (x_dot, -GM * x / r_pow_3, y_dot, -GM * y / r_pow_3, z_dot, -GM * z / r_pow_3)
+    return (x_dot, -GM * x / r_pow_3,
+            y_dot, -GM * y / r_pow_3,
+            z_dot, -GM * z / r_pow_3)

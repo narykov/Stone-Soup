@@ -271,14 +271,34 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
 
         return A
 
+    # def function(self, state, noise=False, **kwargs) -> StateVector:
+    #     if isinstance(noise, bool) or noise is None:
+    #         if noise:
+    #             noise = self.rvs(prior=state, **kwargs)
+    #         else:
+    #             noise = 0
+    #
+    #     return self.jacobian(state, **kwargs) @ state.state_vector + noise
+
     def function(self, state, noise=False, **kwargs) -> StateVector:
+        dt = kwargs['time_interval'].total_seconds()
+        # sv1 = state
+        da = self.diff_equation
+        q_xdot, q_ydot, q_zdot = self.linear_noise_coeffs
+        dQ = np.diag([0., q_xdot, 0., q_ydot, 0., q_zdot])
+        sv2, _, C = self._do_linearise(da, dQ, state, dt)
+
         if isinstance(noise, bool) or noise is None:
             if noise:
                 noise = self.rvs(prior=state, **kwargs)
             else:
                 noise = 0
 
-        return self.jacobian(state, **kwargs) @ state.state_vector + noise
+        if sv2.ndim > 1:
+            breakpoint()
+
+        return np.array([sv2]).T + noise
+
 
     def covar(self, time_interval, **kwargs):
         dt = time_interval.total_seconds()
