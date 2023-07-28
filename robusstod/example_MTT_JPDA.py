@@ -10,7 +10,10 @@ from datetime import datetime, timedelta
 from stonesoup.predictor.kalman import ExtendedKalmanPredictorROBUSSTOD
 from stonesoup.plotter import Plotterly
 from stonesoup.models.measurement.nonlinear import CartesianToElevationBearingRange
-
+from stonesoup.types.track import Track
+from stonesoup.functions import gm_reduce_single
+from stonesoup.types.array import StateVectors
+from stonesoup.types.update import GaussianStateUpdate
 
 from stonesoup.hypothesiser.probability import PDAHypothesiser
 from stonesoup.dataassociator.probability import JPDA
@@ -26,12 +29,8 @@ from stonesoup_routines import get_initial_states
 from stonesoup_routines import get_groundtruth_paths
 from stonesoup_routines import get_priors
 from stonesoup_routines import get_observation_histories
-from stonesoup_routines import do_JPDA
-
-
 
 using_godot = False
-
 if using_godot:
     from funcs_godot import get_noise_coefficients
     from funcs_godot import KeplerianToCartesian
@@ -40,6 +39,50 @@ else:
     from funcs_basic import get_noise_coefficients
     from funcs_basic import KeplerianToCartesian
     from funcs_basic import twoBody3d_da
+
+
+def do_JPDA(priors, timesteps, observation_history, data_associator):
+
+    tracks = set()
+    for prior_pdf in priors:
+        tracks.add(Track([prior_pdf]))
+
+    try:
+        assert len(timesteps) == len(observation_history)  # check if the following for loop makes sense
+    except AssertionError:
+        print('Cardinalities should match. Possibly, no observations collected at one of the time steps.')
+
+    for timestep, observation in zip(timesteps, observation_history):
+        # NB: Observation is understood here as a set of measurements and false alarms.
+        hypotheses = data_associator.associate(
+            tracks, observation, timestep, allow_singular=True
+        )
+
+        # Loop through each track, performing the association step with weights adjusted according to JPDA.
+        for track in tracks:
+            track_hypotheses = hypotheses[track]
+
+            posterior_states = []
+            posterior_state_weights = []
+            for hypothesis in track_hypotheses:
+                if not hypothesis:
+                    posterior_states.append(hypothesis.prediction)
+                else:
+                    posterior_state = data_associator.hypothesiser.updater.update(hypothesis)
+                    posterior_states.append(posterior_state)
+                posterior_state_weights.append(hypothesis.probability)
+
+            means = StateVectors([state.state_vector for state in posterior_states])
+            covars = np.stack([state.covar for state in posterior_states], axis=2)
+            weights = np.asarray(posterior_state_weights)
+
+            # Reduce mixture of states to one posterior estimate Gaussian.
+            post_mean, post_covar = gm_reduce_single(means, covars, weights)
+
+            # Add a Gaussian state approximation to the track.
+            track.append(GaussianStateUpdate(post_mean, post_covar, track_hypotheses, timestep))
+
+    return tracks
 
 
 if __name__ == "__main__":
