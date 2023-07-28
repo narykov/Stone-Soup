@@ -217,6 +217,9 @@ class ConstantTurnSandwich(ConstantTurn):
 
 
 class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
+    """ We follow the approach of linearised discretization to handle nonlinear continuous-time dynamic models.
+    """
+
     linear_noise_coeffs: np.ndarray = Property(
         doc=r"The acceleration noise diffusion coefficients :math:`[q_x, \: q_y, \: q_z]^T`")
     diff_equation: staticmethod = Property(doc=r"Differential equation describing the force model")
@@ -244,24 +247,17 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
 
         return (A)
 
-    def _do_linearise(self, da, dQ, x, dt):
+    def _do_linearise(self, da, x, dt):
         dA = self._get_jacobian(da, x)  # state here is GroundTruthState
-        A = expm(dA * dt)
         nx = len(x.state_vector)
-
         # Get \int e^{dA*s}\,ds
         int_eA = expm(dt * np.block([[dA, np.identity(nx)], [np.zeros([nx, 2 * nx])]]))[:nx, nx:]
-
-        # Get Q
-        G = expm(dt * np.block([[-dA, dQ], [np.zeros([nx, nx]), np.transpose(dA)]]))
-        Q = np.transpose(G[nx:, nx:]) @ (G[:nx, nx:])
-        Q = (Q + np.transpose(Q)) / 2.
 
         # Get new value of x
         x = [i for i in x.state_vector]
         newx = x + int_eA @ da(torch.tensor(x))
 
-        return newx, A, Q
+        return newx
 
     def jacobian(self, state, **kwargs):
         da = self.diff_equation
@@ -271,22 +267,10 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
 
         return A
 
-    # def function(self, state, noise=False, **kwargs) -> StateVector:
-    #     if isinstance(noise, bool) or noise is None:
-    #         if noise:
-    #             noise = self.rvs(prior=state, **kwargs)
-    #         else:
-    #             noise = 0
-    #
-    #     return self.jacobian(state, **kwargs) @ state.state_vector + noise
-
     def function(self, state, noise=False, **kwargs) -> StateVector:
-        dt = kwargs['time_interval'].total_seconds()
-        # sv1 = state
         da = self.diff_equation
-        q_xdot, q_ydot, q_zdot = self.linear_noise_coeffs
-        dQ = np.diag([0., q_xdot, 0., q_ydot, 0., q_zdot])
-        sv2, _, C = self._do_linearise(da, dQ, state, dt)
+        dt = kwargs['time_interval'].total_seconds()
+        sv2 = self._do_linearise(da, state, dt)
 
         if isinstance(noise, bool) or noise is None:
             if noise:
@@ -294,18 +278,23 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
             else:
                 noise = 0
 
-        if sv2.ndim > 1:
-            breakpoint()
-
         return np.array([sv2]).T + noise
 
 
     def covar(self, time_interval, **kwargs):
-        dt = time_interval.total_seconds()
-        sv1 = kwargs['prior']
         da = self.diff_equation
+        x = kwargs['prior']
+        dA = self._get_jacobian(da, x)  # state here is GroundTruthState
+
+        # Get Q
         q_xdot, q_ydot, q_zdot = self.linear_noise_coeffs
         dQ = np.diag([0., q_xdot, 0., q_ydot, 0., q_zdot])
-        _, _, C = self._do_linearise(da, dQ, sv1, dt)
 
-        return CovarianceMatrix(C)
+        nx = len(x.state_vector)
+        dt = time_interval.total_seconds()
+
+        G = expm(dt * np.block([[-dA, dQ], [np.zeros([nx, nx]), np.transpose(dA)]]))
+        Q = np.transpose(G[nx:, nx:]) @ (G[:nx, nx:])
+        Q = (Q + np.transpose(Q)) / 2.
+
+        return CovarianceMatrix(Q)
