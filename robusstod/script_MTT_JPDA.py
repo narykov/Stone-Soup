@@ -273,6 +273,7 @@ if __name__ == "__main__":
         truths, timesteps, measurement_model, sensor_parameters, scenario_parameters['n_mc_runs']
     )
 
+    # Put together a filter
     predictor = ExtendedKalmanPredictorROBUSSTOD(transition_model)
     updater = IPLFKalmanUpdater()
 
@@ -290,8 +291,8 @@ if __name__ == "__main__":
         tracks_JPDA_list.append(tracks_JPDA)
 
     plotter = Plotterly()
-    plotter.plot_ground_truths(truths, [0, 2], line=dict(dash="dash", color='black'))
     mc_run_to_plot = 0
+    plotter.plot_ground_truths(truths, [0, 2], line=dict(dash="dash", color='black'))
     plotter.plot_measurements(observation_histories[mc_run_to_plot], [0, 2])
     plotter.plot_tracks(tracks_JPDA_list[mc_run_to_plot], [0, 2], uncertainty=True)
     plotter.fig.show()
