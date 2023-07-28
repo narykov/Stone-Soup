@@ -59,27 +59,34 @@ def get_initial_states(n_targets=None, population_mean=None, population_covarian
     """We sample n_targets initial states from the Gaussian distribution"""
     ground_truth_states = []
     for _ in range(n_targets):
-        sampled_deviation = np.linalg.cholesky(population_covariance).T @ np.random.normal(size=population_mean.shape)
-        state_vector_init = population_mean + sampled_deviation
+        if population_covariance.any():
+            sampled_deviation = np.linalg.cholesky(population_covariance).T @ np.random.normal(size=population_mean.shape)
+            state_vector_init = population_mean + sampled_deviation
+        else:
+            state_vector_init = population_mean
         ground_truth_states.append(GroundTruthState(state_vector=state_vector_init, timestamp=start_time))
     return ground_truth_states
 
 
+def get_groundtruth_path(initial_target_state=None, transition_model=None, timesteps=None, noise=False):
+    successive_time_steps = timesteps[1:]  # dropping the very first start_time
+    truth = GroundTruthPath(initial_target_state)
+    for timestamp in successive_time_steps:
+        interval = timestamp - truth[-1].timestamp
+        truth.append(
+            GroundTruthState(transition_model.function(state=truth[-1], noise=noise, time_interval=interval),
+                             timestamp=timestamp)
+        )
+    return truth
+
+
 def get_groundtruth_paths(initial_target_states=None, transition_model=None, timesteps=None, noise=False):
     groundtruth_paths = OrderedSet()
-    successive_time_steps = timesteps[1:]  # dropping the very first start_time
     for initial_target_state in initial_target_states:
-        truth = GroundTruthPath(initial_target_state)
-        for timestamp in successive_time_steps:
-            interval = timestamp - truth[-1].timestamp
-            truth.append(
-                GroundTruthState(transition_model.function(
-                    state=truth[-1],
-                    noise=noise,
-                    time_interval=interval),
-                    timestamp=timestamp
-                )
-            )
+        truth = get_groundtruth_path(initial_target_state=initial_target_state,
+                                     transition_model=transition_model,
+                                     timesteps=timesteps,
+                                     noise=noise)
         groundtruth_paths.add(truth)
     return groundtruth_paths
 
@@ -255,7 +262,7 @@ if __name__ == "__main__":
     sigma_el, sigma_b, sigma_range = np.deg2rad(0.01), np.deg2rad(0.01), 100
     sensor_x, sensor_y, sensor_z = 0, 0, 0
     sensor_parameters = {
-        'prob_detect': 1,
+        'prob_detect': 0.9,
         'clutter_rate': 3,
         'clutter_spatial_density': 0.125 * 0.00001,
         'ndim_state': ndim_state,
