@@ -1,31 +1,26 @@
 import numpy as np
-import torch
 
 from stonesoup.types.detection import TrueDetection, Clutter
-from stonesoup.types.array import StateVectors
-
 from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
-from stonesoup.types.track import Track
-
-from stonesoup.types.update import GaussianStateUpdate
 from stonesoup.types.prediction import GaussianStatePrediction
 from stonesoup.types.state import State
 from scipy.stats import uniform
-
-from stonesoup.functions import gm_reduce_single
 from ordered_set import OrderedSet
+
+
+def get_initial_state(state_vector=None, start_time=None):
+    initial_state = GroundTruthState(state_vector=state_vector, timestamp=start_time)
+    return initial_state
 
 
 def get_initial_states(n_targets=None, population_mean=None, population_covariance=None, start_time=None, **kwargs):
     """We sample n_targets initial states from the Gaussian distribution"""
     ground_truth_states = []
     for _ in range(n_targets):
-        if population_covariance.any():
-            sampled_deviation = np.linalg.cholesky(population_covariance).T @ np.random.normal(size=population_mean.shape)
-            state_vector_init = population_mean + sampled_deviation
-        else:
-            state_vector_init = population_mean
-        ground_truth_states.append(GroundTruthState(state_vector=state_vector_init, timestamp=start_time))
+        sampled_deviation = np.linalg.cholesky(population_covariance).T @ np.random.normal(size=population_mean.shape)
+        state_vector = population_mean + sampled_deviation
+        state_vector_init = get_initial_state(state_vector=state_vector, start_time=start_time)
+        ground_truth_states.append(state_vector_init)
     return ground_truth_states
 
 
@@ -52,13 +47,20 @@ def get_groundtruth_paths(initial_target_states=None, transition_model=None, tim
     return groundtruth_paths
 
 
+def get_prior(initial_state, target_initial_covariance, timestamp, bias_fixed=True):
+    mean = initial_state.state_vector
+    if bias_fixed:
+        bias = np.matrix([-22068.01433784, 69.37315652, 507.76211348, -86.74038986, -58321.63970861, 89.04789997]).T
+    else:
+        bias = np.linalg.cholesky(target_initial_covariance).T @ np.random.normal(size=mean.shape)  # GroundTruth+chol(P0)’*randn
+
+    prior_pdf = GaussianStatePrediction(mean + bias, target_initial_covariance, timestamp=timestamp)
+    return prior_pdf
+
 def get_priors(initial_states, target_initial_covariance, timestamp):
     target_priors = []
     for initial_state in initial_states:
-        mean = initial_state.state_vector
-        bias = np.matrix([-22068.01433784, 69.37315652, 507.76211348, -86.74038986, -58321.63970861, 89.04789997]).T
-        # bias = np.linalg.cholesky(P_0).T @ np.random.normal(size=target_state_0.shape)  # GroundTruth+chol(P0)’*randn
-        prior_pdf = GaussianStatePrediction(mean + bias, target_initial_covariance, timestamp=timestamp)
+        prior_pdf = get_prior(initial_state, target_initial_covariance, timestamp)
         target_priors.append(prior_pdf)
     return target_priors
 
@@ -123,57 +125,13 @@ def get_observation_histories(truths, timesteps, measurement_model, sensor_param
     return observation_histories
 
 
-def do_JPDA(priors, timesteps, observation_history, data_associator):
-
-    tracks = set()
-    for prior_pdf in priors:
-        tracks.add(Track([prior_pdf]))
-
-    try:
-        assert len(timesteps) == len(observation_history)  # check if the following for loop makes sense
-    except AssertionError:
-        print('Cardinalities should match. Possibly, no observations collected at one of the time steps.')
-
-    for timestep, observation in zip(timesteps, observation_history):
-        # NB: Observation is understood here as a set of measurements and false alarms.
-        hypotheses = data_associator.associate(
-            tracks, observation, timestep, allow_singular=True
-        )
-
-        # Loop through each track, performing the association step with weights adjusted according to JPDA.
-        for track in tracks:
-            track_hypotheses = hypotheses[track]
-
-            posterior_states = []
-            posterior_state_weights = []
-            for hypothesis in track_hypotheses:
-                if not hypothesis:
-                    posterior_states.append(hypothesis.prediction)
-                else:
-                    posterior_state = data_associator.hypothesiser.updater.update(hypothesis)
-                    posterior_states.append(posterior_state)
-                posterior_state_weights.append(hypothesis.probability)
-
-            means = StateVectors([state.state_vector for state in posterior_states])
-            covars = np.stack([state.covar for state in posterior_states], axis=2)
-            weights = np.asarray(posterior_state_weights)
-
-            # Reduce mixture of states to one posterior estimate Gaussian.
-            post_mean, post_covar = gm_reduce_single(means, covars, weights)
-
-            # Add a Gaussian state approximation to the track.
-            track.append(GaussianStateUpdate(post_mean, post_covar, track_hypotheses, timestep))
-
-    return tracks
-
-
 def get_measurement_history(truth=None, measurement_model=None):
     """ Generates a measurement history. """
     measurement_history = []
     for state in truth:
         measurement = measurement_model.function(state, noise=True)
         measurement_history.append(
-            TrueDetection(measurement, timestamp=state.timestamp, measurement_model=measurement_model)
+            TrueDetection(measurement, timestamp=state.timestamp, groundtruth_path=truth, measurement_model=measurement_model)
         )
     return measurement_history
 
@@ -182,6 +140,6 @@ def get_measurement_histories(truth=None, measurement_model=None, n_mc_runs=1):
     """ Generates n_mc_runs measurement histories. """
     measurement_histories = []
     for _ in range(n_mc_runs):
-        measurement_history = get_measurement_history(truth, timesteps, measurement_model, sensor_parameters)
+        measurement_history = get_measurement_history(truth=truth, measurement_model=measurement_model)
         measurement_histories.append(measurement_history)
     return measurement_histories
