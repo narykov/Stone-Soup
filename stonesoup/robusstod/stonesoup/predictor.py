@@ -1,4 +1,4 @@
-from ....stonesoup.predictor.kalman import ExtendedKalmanPredictor as ExtendedKalmanPredictorOriginal
+from ...predictor.kalman import ExtendedKalmanPredictor as ExtendedKalmanPredictorOriginal
 
 
 class ExtendedKalmanPredictor(ExtendedKalmanPredictorOriginal):

@@ -2,7 +2,9 @@ import warnings
 import numpy as np
 from functools import lru_cache
 
+
 from ...base import Property
+from ...functions import gauss2sigma, unscented_transform
 from ...types.prediction import Prediction, MeasurementPrediction
 from ...updater.kalman import UnscentedKalmanUpdater as UnscentedKalmanUpdaterOriginal
 from ...measures import Measure
@@ -15,43 +17,42 @@ from .measures import GaussianKullbackLeiblerDivergence
 class UnscentedKalmanUpdater(UnscentedKalmanUpdaterOriginal):
 
     @lru_cache()
-    def predict_measurement(self, predicted_state, measurement_model=None,
-                            **kwargs):
-        r"""Predict the measurement implied by the predicted state mean
+    def predict_measurement(self, predicted_state, measurement_model=None, **kwargs):
+        """Unscented Kalman Filter measurement prediction step. Uses the
+        unscented transform to estimate a Gauss-distributed predicted
+        measurement.
 
         Parameters
         ----------
-        predicted_state : :class:`~.GaussianState`
-            The predicted state :math:`\mathbf{x}_{k|k-1}`, :math:`P_{k|k-1}`
-        measurement_model : :class:`~.MeasurementModel`
-            The measurement model. If omitted, the model in the updater object
-            is used
-        **kwargs : various
-            These are passed to :meth:`~.MeasurementModel.function` and
-            :meth:`~.MeasurementModel.matrix`
+        predicted_state : :class:`~.GaussianStatePrediction`
+            A predicted state
+        measurement_model : :class:`~.MeasurementModel`, optional
+            The measurement model used to generate the measurement prediction.
+            This should be used in cases where the measurement model is
+            dependent on the received measurement (the default is `None`, in
+            which case the updater will use the measurement model specified on
+            initialisation)
 
         Returns
         -------
-        : :class:`GaussianMeasurementPrediction`
-            The measurement prediction, :math:`\mathbf{z}_{k|k-1}`
+        : :class:`~.GaussianMeasurementPrediction`
+            The measurement prediction
 
         """
-        # If a measurement model is not specified then use the one that's
-        # native to the updater
+
         measurement_model = self._check_measurement_model(measurement_model)
 
-        pred_meas = measurement_model.function(predicted_state, **kwargs)
+        sigma_points, mean_weights, covar_weights = \
+            gauss2sigma(predicted_state,
+                        self.alpha, self.beta, self.kappa)
 
-        hh = self._measurement_matrix(predicted_state=predicted_state,
-                                      measurement_model=measurement_model,
-                                      **kwargs)
-
-        # The measurement cross covariance and innovation covariance
-        meas_cross_cov = self._measurement_cross_covariance(predicted_state, hh)
-        innov_cov = self._innovation_covariance(meas_cross_cov, hh, measurement_model)
+        meas_pred_mean, meas_pred_covar, cross_covar, _, _, _ = \
+            unscented_transform(sigma_points, mean_weights, covar_weights,
+                                measurement_model.function,
+                                covar_noise=measurement_model.covar())
 
         return MeasurementPrediction.from_state(
-            predicted_state, pred_meas, innov_cov, cross_covar=meas_cross_cov)
+            predicted_state, meas_pred_mean, meas_pred_covar, cross_covar=cross_covar)
 
 
 

@@ -53,7 +53,7 @@ def main():
     ndim_state = 6
     mapping_location = (0, 2, 4)  # encodes location indices in the state vector
     mapping_velocity = (1, 3, 5)  # encodes velocity indices in the state vector
-    GM = G.value * M_earth.value  # https://en.wikipedia.org/wiki/Standard_gravitational_parameter (m^3 s^−2)
+    GM = G * M_earth  # https://en.wikipedia.org/wiki/Standard_gravitational_parameter (m^3 s^−2)
     population_mean = KeplerianToCartesian(K, GM, ndim_state, mapping_location, mapping_velocity)  # into Cartesian
 
     target_initial_covariance = np.diag([50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2])
