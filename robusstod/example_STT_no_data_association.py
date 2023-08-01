@@ -4,32 +4,32 @@ import warnings
 warnings.simplefilter('always', UserWarning)
 
 import numpy as np
-from astropy.constants import G, M_earth, R_earth
 # import copy
-
 from datetime import datetime, timedelta
 from stonesoup.models.measurement.nonlinear import CartesianToElevationBearingRange
-from stonesoup.models.transition.nonlinear import LinearisedDiscretisation
 from stonesoup.plotter import Plotterly
-from stonesoup.predictor.kalman import ExtendedKalmanPredictorROBUSSTOD
 from stonesoup.types.hypothesis import SingleHypothesis
 from stonesoup.types.track import Track
-from stonesoup.updater.kalman import IPLFKalmanUpdater
 
-from stonesoup_routines import get_initial_state
-from stonesoup_routines import get_groundtruth_path
-from stonesoup_routines import get_prior
-from stonesoup_routines import get_measurement_histories
+from stonesoup.robusstod.stonesoup.models.transition import LinearisedDiscretisation
+from stonesoup.robusstod.stonesoup.predictor import ExtendedKalmanPredictor
+from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
 
-using_godot = False
-if using_godot:
-    from funcs_godot import get_noise_coefficients
-    from funcs_godot import KeplerianToCartesian
-    from funcs_godot import twoBody3d_da
+from stonesoup.robusstod.utils import get_initial_state
+from stonesoup.robusstod.utils import get_groundtruth_path
+from stonesoup.robusstod.utils import get_prior
+from stonesoup.robusstod.utils import get_measurement_histories
+
+from stonesoup.robusstod.physics.constants import G, M_earth
+from stonesoup.robusstod.physics.other import get_noise_coefficients
+
+use_godot = False
+if not use_godot:
+    from stonesoup.robusstod.physics.godot import KeplerianToCartesian
+    from stonesoup.robusstod.physics.godot import twoBody3d_da
 else:
-    from funcs_basic import get_noise_coefficients
-    from funcs_basic import KeplerianToCartesian
-    from funcs_basic import twoBody3d_da
+    from stonesoup.robusstod.physics.basic import KeplerianToCartesian
+    from stonesoup.robusstod.physics.basic import twoBody3d_da
 
 
 def do_STT(prior=None, predictor=None, updater=None, measurement_history=None):
@@ -106,7 +106,7 @@ def main():
     )
 
     # Put together a filter
-    predictor = ExtendedKalmanPredictorROBUSSTOD(transition_model)
+    predictor = ExtendedKalmanPredictor(transition_model)
     updater = IPLFKalmanUpdater()
 
     track_STT_list = []
