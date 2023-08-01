@@ -23,22 +23,22 @@ from stonesoup.dataassociator.probability import JPDA
 from stonesoup.updater.kalman import IPLFKalmanUpdater
 from stonesoup.models.transition.nonlinear import LinearisedDiscretisation
 
-from astropy.constants import G, M_earth, R_earth
 
-from stonesoup_routines import get_initial_states
-from stonesoup_routines import get_groundtruth_paths
-from stonesoup_routines import get_priors
-from stonesoup_routines import get_observation_histories
+from stonesoup.robusstod.utils import get_initial_states
+from stonesoup.robusstod.utils import get_groundtruth_paths
+from stonesoup.robusstod.utils import get_priors
+from stonesoup.robusstod.utils import get_observation_histories
 
-using_godot = False
-if using_godot:
-    from funcs_godot import get_noise_coefficients
-    from funcs_godot import KeplerianToCartesian
-    from funcs_godot import twoBody3d_da
+from stonesoup.robusstod.physics.constants import G, M_earth
+from stonesoup.robusstod.physics.other import get_noise_coefficients
+
+use_godot = False
+if not use_godot:
+    from stonesoup.robusstod.physics.godot import KeplerianToCartesian
+    from stonesoup.robusstod.physics.godot import twoBody3d_da
 else:
-    from funcs_basic import get_noise_coefficients
-    from funcs_basic import KeplerianToCartesian
-    from funcs_basic import twoBody3d_da
+    from stonesoup.robusstod.physics.basic import KeplerianToCartesian
+    from stonesoup.robusstod.physics.basic import twoBody3d_da
 
 
 def do_JPDA(priors, timesteps, observation_history, data_associator):
