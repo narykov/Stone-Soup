@@ -1,12 +1,58 @@
-import numpy as np
 import warnings
+import numpy as np
+from functools import lru_cache
 
 from ...base import Property
-from ...types.prediction import Prediction
+from ...types.prediction import Prediction, MeasurementPrediction
+from ...updater.kalman import UnscentedKalmanUpdater as UnscentedKalmanUpdaterOriginal
+from ...measures import Measure
+
+# ROBUSSTOD CLASSES
 from .models.measurement import GeneralLinearGaussian
 from .measures import GaussianKullbackLeiblerDivergence
-from ...updater.kalman import UnscentedKalmanUpdater
-from ...measures import Measure
+
+
+class UnscentedKalmanUpdater(UnscentedKalmanUpdaterOriginal):
+
+    @lru_cache()
+    def predict_measurement(self, predicted_state, measurement_model=None,
+                            **kwargs):
+        r"""Predict the measurement implied by the predicted state mean
+
+        Parameters
+        ----------
+        predicted_state : :class:`~.GaussianState`
+            The predicted state :math:`\mathbf{x}_{k|k-1}`, :math:`P_{k|k-1}`
+        measurement_model : :class:`~.MeasurementModel`
+            The measurement model. If omitted, the model in the updater object
+            is used
+        **kwargs : various
+            These are passed to :meth:`~.MeasurementModel.function` and
+            :meth:`~.MeasurementModel.matrix`
+
+        Returns
+        -------
+        : :class:`GaussianMeasurementPrediction`
+            The measurement prediction, :math:`\mathbf{z}_{k|k-1}`
+
+        """
+        # If a measurement model is not specified then use the one that's
+        # native to the updater
+        measurement_model = self._check_measurement_model(measurement_model)
+
+        pred_meas = measurement_model.function(predicted_state, **kwargs)
+
+        hh = self._measurement_matrix(predicted_state=predicted_state,
+                                      measurement_model=measurement_model,
+                                      **kwargs)
+
+        # The measurement cross covariance and innovation covariance
+        meas_cross_cov = self._measurement_cross_covariance(predicted_state, hh)
+        innov_cov = self._innovation_covariance(meas_cross_cov, hh, measurement_model)
+
+        return MeasurementPrediction.from_state(
+            predicted_state, pred_meas, innov_cov, cross_covar=meas_cross_cov)
+
 
 
 class IPLFKalmanUpdater(UnscentedKalmanUpdater):
