@@ -1,18 +1,13 @@
 #!/usr/bin/env python
-import warnings
-
-warnings.simplefilter('always', UserWarning)
-
+# import warnings
 import numpy as np
 # import copy
-
 from datetime import datetime, timedelta
-from stonesoup.predictor.kalman import ExtendedKalmanPredictorROBUSSTOD
+from stonesoup.functions import gm_reduce_single
 from stonesoup.plotter import Plotterly
 from stonesoup.models.measurement.nonlinear import CartesianToElevationBearingRange
-from stonesoup.types.track import Track
-from stonesoup.functions import gm_reduce_single
 from stonesoup.types.array import StateVectors
+from stonesoup.types.track import Track
 from stonesoup.types.update import GaussianStateUpdate
 
 from stonesoup.hypothesiser.probability import PDAHypothesiser
@@ -20,8 +15,9 @@ from stonesoup.dataassociator.probability import JPDA
 
 
 # NEW CLASSES:
-from stonesoup.updater.kalman import IPLFKalmanUpdater
-from stonesoup.models.transition.nonlinear import LinearisedDiscretisation
+from stonesoup.robusstod.stonesoup.models.transition import LinearisedDiscretisation
+from stonesoup.robusstod.stonesoup.predictor import ExtendedKalmanPredictor
+from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
 
 
 from stonesoup.robusstod.utils import get_initial_states
@@ -39,6 +35,7 @@ if not use_godot:
 else:
     from stonesoup.robusstod.physics.basic import KeplerianToCartesian
     from stonesoup.robusstod.physics.basic import twoBody3d_da
+
 
 
 def do_JPDA(priors, timesteps, observation_history, data_associator):
@@ -159,7 +156,7 @@ def main():
     )
 
     # Put together a filter
-    predictor = ExtendedKalmanPredictorROBUSSTOD(transition_model)
+    predictor = ExtendedKalmanPredictor(transition_model)
     updater = IPLFKalmanUpdater()
 
     hypothesiser = PDAHypothesiser(
