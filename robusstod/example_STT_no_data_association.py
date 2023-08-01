@@ -43,8 +43,7 @@ def do_STT(prior=None, predictor=None, updater=None, measurement_history=None):
     return track
 
 
-if __name__ == "__main__":
-
+def main():
     start_time = datetime(2000, 1, 1)
     np.random.seed(1991)
 
@@ -74,7 +73,8 @@ if __name__ == "__main__":
     initial_state = get_initial_state(state_vector=population_mean, start_time=start_time)
     prior = get_prior(initial_state, scenario_parameters['target_initial_covariance'], start_time, bias_fixed=True)
 
-    timesteps = [start_time + k * scenario_parameters['time_interval'] for k in range(scenario_parameters['n_time_steps'])]
+    timesteps = [start_time + k * scenario_parameters['time_interval'] for k in
+                 range(scenario_parameters['n_time_steps'])]
     transition_model = LinearisedDiscretisation(
         diff_equation=twoBody3d_da,
         linear_noise_coeffs=get_noise_coefficients(GM)
@@ -120,3 +120,7 @@ if __name__ == "__main__":
     plotter.plot_measurements(measurement_histories[mc_run_to_plot], [0, 2])
     plotter.plot_tracks(track_STT_list[mc_run_to_plot], [0, 2], uncertainty=True)
     plotter.fig.show()
+
+
+if __name__ == "__main__":
+    main()

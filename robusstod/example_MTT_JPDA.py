@@ -85,8 +85,7 @@ def do_JPDA(priors, timesteps, observation_history, data_associator):
     return tracks
 
 
-if __name__ == "__main__":
-
+def main():
     start_time = datetime(2000, 1, 1)
     np.random.seed(1991)
 
@@ -182,3 +181,7 @@ if __name__ == "__main__":
     plotter.plot_measurements(observation_histories[mc_run_to_plot], [0, 2])
     plotter.plot_tracks(tracks_JPDA_list[mc_run_to_plot], [0, 2], uncertainty=True)
     plotter.fig.show()
+
+
+if __name__ == "__main__":
+    main()
