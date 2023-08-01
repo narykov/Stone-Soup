@@ -1,7 +1,7 @@
-from ....stonesoup.predictor.kalman import ExtendedKalmanPredictor
+from ....stonesoup.predictor.kalman import ExtendedKalmanPredictor as ExtendedKalmanPredictorOriginal
 
 
-class ExtendedKalmanPredictor(ExtendedKalmanPredictor):
+class ExtendedKalmanPredictor(ExtendedKalmanPredictorOriginal):
     """Updates the arguments that are passed to covariance prediction in KalmanPredictor"""
 
     def _predicted_covariance(self, prior, predict_over_interval, **kwargs):

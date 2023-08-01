@@ -1,11 +1,14 @@
 #!/usr/bin/env python
-import warnings
 
-warnings.simplefilter('always', UserWarning)
+"""
+Tracking a single orbiting object
+========================================
+This is a demonstration using the implemented IPLF filter in the context of space situation awareness.
+"""
 
 import numpy as np
-# import copy
 from datetime import datetime, timedelta
+
 from stonesoup.models.measurement.nonlinear import CartesianToElevationBearingRange
 from stonesoup.plotter import Plotterly
 from stonesoup.types.hypothesis import SingleHypothesis
@@ -14,22 +17,14 @@ from stonesoup.types.track import Track
 from stonesoup.robusstod.stonesoup.models.transition import LinearisedDiscretisation
 from stonesoup.robusstod.stonesoup.predictor import ExtendedKalmanPredictor
 from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
-
-from stonesoup.robusstod.utils import get_initial_state
-from stonesoup.robusstod.utils import get_groundtruth_path
-from stonesoup.robusstod.utils import get_prior
-from stonesoup.robusstod.utils import get_measurement_histories
-
+from stonesoup.robusstod.utils import get_initial_state, get_groundtruth_path, get_prior, get_measurement_histories
 from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
-
 use_godot = False
-if not use_godot:
-    from stonesoup.robusstod.physics.godot import KeplerianToCartesian
-    from stonesoup.robusstod.physics.godot import twoBody3d_da
+if use_godot:
+    from stonesoup.robusstod.physics.godot import KeplerianToCartesian, twoBody3d_da
 else:
-    from stonesoup.robusstod.physics.basic import KeplerianToCartesian
-    from stonesoup.robusstod.physics.basic import twoBody3d_da
+    from stonesoup.robusstod.physics.basic import KeplerianToCartesian, twoBody3d_da
 
 
 def do_STT(prior=None, predictor=None, updater=None, measurement_history=None):

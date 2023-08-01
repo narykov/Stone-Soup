@@ -1,5 +1,5 @@
-import warnings
 import numpy as np
+import warnings
 
 from ...base import Property
 from ...types.prediction import Prediction
@@ -83,6 +83,8 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
         while self.measure(prev_state, post_state) > self.tolerance:
 
             if iterations >= self.max_iterations:
+                # TODO: include below to receive warnings on every step of the filtering recursion
+                # warnings.simplefilter('always', UserWarning)
                 warnings.warn("IPLF update did not converge")
                 break
 
