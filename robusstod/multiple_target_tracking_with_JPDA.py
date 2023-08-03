@@ -1,23 +1,32 @@
 #!/usr/bin/env python
-# import warnings
+
+"""
+Tracking multiple orbiting object with detection failures (false alarms and missed detections)
+========================================
+This is a demonstration using the implemented IPLF filter in the context of space situation awareness.
+"""
+
 import numpy as np
-# import copy
 from datetime import datetime, timedelta
+from scipy.stats import uniform
+from ordered_set import OrderedSet
 from stonesoup.functions import gm_reduce_single
 from stonesoup.plotter import Plotterly
 from stonesoup.models.measurement.nonlinear import CartesianToElevationBearingRange
-from stonesoup.types.array import StateVectors
+from stonesoup.types.array import StateVectors, CovarianceMatrix
+from stonesoup.types.detection import TrueDetection, Clutter
+from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
+from stonesoup.types.prediction import GaussianStatePrediction
+from stonesoup.types.state import State
 from stonesoup.types.track import Track
 from stonesoup.types.update import GaussianStateUpdate
 from stonesoup.dataassociator.probability import JPDA
 
-
-# ROBUSSTOD CLASSES:
+# ROBUSSTOD MODULES
 from stonesoup.robusstod.stonesoup.hypothesiser import PDAHypothesiser
 from stonesoup.robusstod.stonesoup.models.transition import LinearisedDiscretisation
 from stonesoup.robusstod.stonesoup.predictor import ExtendedKalmanPredictor
 from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
-from stonesoup.robusstod.utils import get_initial_states, get_groundtruth_paths, get_priors, get_observation_histories
 from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
 
@@ -28,22 +37,66 @@ else:
     from stonesoup.robusstod.physics.basic import KeplerianToCartesian, twoBody3d_da
 
 
+def get_observation_history(truths, timesteps, measurement_model, sensor_parameters):
+    """ This follows the clutter generation as in
+    https://stonesoup.readthedocs.io/en/v1.0/auto_tutorials/06_DataAssociation-MultiTargetTutorial.html#generate-detections-with-clutter
+    """
+
+    prob_detect = sensor_parameters['prob_detect']
+    clutter_rate = sensor_parameters['clutter_rate']
+
+    observation_history = []
+
+    for timestamp in timesteps:
+        observation = set()
+
+        for truth in truths:
+            # True detections. Generate actual detection from the state with a 1-prob_detect chance of no detection.
+            if np.random.rand() <= prob_detect:
+                measurement = measurement_model.function(truth[timestamp], noise=True)
+                observation.add(TrueDetection(state_vector=measurement,
+                                              groundtruth_path=truth,
+                                              timestamp=timestamp,
+                                              measurement_model=measurement_model))
+
+            # False alarm. Generate clutter measurements at this timestep.
+            truth_x = truth[timestamp].state_vector[0]
+            truth_y = truth[timestamp].state_vector[2]
+            truth_z = truth[timestamp].state_vector[4]
+            if clutter_rate == 0:
+                print('Interpreting \lambda=0 as no clutter.')
+                n_false_alarms = 0
+            else:
+                n_false_alarms = np.random.randint(clutter_rate)
+
+            for _ in range(n_false_alarms):
+                width = 100000
+                x = uniform.rvs(truth_x - 0.5 * width, width)
+                y = uniform.rvs(truth_y - 0.5 * width, width)
+                z = uniform.rvs(truth_z - 0.5 * width, width)
+                clutter_state = State(state_vector=np.array([x, np.nan, y, np.nan, z, np.nan]),
+                                      timestamp=timestamp)
+                clutter_measurement = measurement_model.function(clutter_state, noise=False)
+                clutter_detection = Clutter(state_vector=clutter_measurement,
+                                            timestamp=timestamp,
+                                            measurement_model=measurement_model)
+                observation.add(clutter_detection)
+
+        observation_history.append(observation)
+
+    return observation_history
+
+
 def do_JPDA(priors, timesteps, observation_history, data_associator):
+    """Implementation follows https://stonesoup.readthedocs.io/en/latest/auto_tutorials/08_JPDATutorial.html"""
 
     tracks = set()
     for prior_pdf in priors:
-        tracks.add(Track([prior_pdf]))
-
-    try:
-        assert len(timesteps) == len(observation_history)  # check if the following for loop makes sense
-    except AssertionError:
-        print('Cardinalities should match. Possibly, no observations collected at one of the time steps.')
+        tracks.add(Track(prior_pdf))
 
     for timestep, observation in zip(timesteps, observation_history):
         # NB: Observation is understood here as a set of measurements and false alarms.
-        hypotheses = data_associator.associate(
-            tracks, observation, timestep, allow_singular=True
-        )
+        hypotheses = data_associator.associate(tracks, observation, timestep, allow_singular=True)
 
         # Loop through each track, performing the association step with weights adjusted according to JPDA.
         for track in tracks:
@@ -80,7 +133,7 @@ def main():
     # then converting them into Cartesian domain.
 
     a, e, i, w, omega, nu = (9164000, 0.03, 70, 0, 0, 0)
-    # the values above from Gemma https://github.com/alecksphillips/SatelliteModel/blob/main/Stan-InitialStateTarget.py
+    # the values above are from https://github.com/alecksphillips/SatelliteModel/blob/main/Stan-InitialStateTarget.py
     # a, e, i, w, omega, nu (m, _, deg, deg, deg, deg)
     # NB: a, e, I, RAAN, argP, ta (km, _, rad, rad, rad, rad) as in https://godot.io.esa.int/tutorials/T04_Astro/T04scv/
     K = np.array([a, e, np.radians(i), np.radians(w), np.radians(omega), np.radians(nu)])  # now in SI units (m & rad)
@@ -94,37 +147,47 @@ def main():
     target_initial_covariance = np.diag([50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2])
 
     scenario_parameters = {
-        'n_mc_runs': 1,
-        'time_interval': timedelta(seconds=50),
         'n_time_steps': 10,
+        'time_interval': timedelta(seconds=50),
         'n_targets': 5,
         'population_mean': population_mean,
         'population_covariance': population_covariance,
         'target_initial_covariance': target_initial_covariance
     }
 
-    initial_states = get_initial_states(
-        n_targets=scenario_parameters['n_targets'],
-        population_mean=scenario_parameters['population_mean'],
-        population_covariance=scenario_parameters['population_covariance'],
-        start_time=start_time
-    )
+    initial_states = []
+    for _ in range(scenario_parameters['n_targets']):
+        deviation = np.linalg.cholesky(scenario_parameters['population_covariance']).T @ np.random.normal(size=scenario_parameters['population_mean'].shape)
+        state_vector = population_mean + deviation
+        initial_state = GroundTruthState(state_vector=state_vector, timestamp=start_time)
+        initial_states.append(initial_state)
 
-    priors = get_priors(initial_states, scenario_parameters['target_initial_covariance'], start_time)  # for tracking
+    priors = []
+    for initial_state in initial_states:
+        deviation = np.linalg.cholesky(scenario_parameters['target_initial_covariance']).T @ np.random.normal(size=initial_states[0].state_vector.shape)
+        prior = GaussianStatePrediction(state_vector=initial_state.state_vector + deviation,
+                                        covar=target_initial_covariance,
+                                        timestamp=start_time)
+        priors.append(prior)
+
     timesteps = [start_time + k * scenario_parameters['time_interval'] for k in range(scenario_parameters['n_time_steps'])]
     transition_model = LinearisedDiscretisation(
         diff_equation=twoBody3d_da,
         linear_noise_coeffs=get_noise_coefficients(GM)
     )
-    truths = get_groundtruth_paths(
-        initial_target_states=initial_states,
-        transition_model=transition_model,
-        timesteps=timesteps,
-        noise=True
-    )
+    truths = OrderedSet()
+    for initial_state in initial_states:
+        truth = GroundTruthPath(initial_state)
+        successive_time_steps = timesteps[1:]  # dropping the very first start_time
+        for timestamp in successive_time_steps:
+            truth.append(GroundTruthState(
+                transition_model.function(state=truth[-1], noise=True, time_interval=scenario_parameters['time_interval']),
+                timestamp=timestamp)
+            )
+        truths.add(truth)
 
     # Generate measurements
-    sigma_el, sigma_b, sigma_range = np.deg2rad(0.01), np.deg2rad(0.01), 100
+    sigma_el, sigma_b, sigma_range = np.deg2rad(0.01), np.deg2rad(0.01), 10000
     sensor_x, sensor_y, sensor_z = 0, 0, 0
     sensor_parameters = {
         'prob_detect': 0.9,
@@ -132,7 +195,7 @@ def main():
         'clutter_spatial_density': 0.125 * 0.00001,
         'ndim_state': ndim_state,
         'mapping': mapping_location,
-        'noise_covar': np.diag([sigma_el ** 2, sigma_b ** 2, sigma_range ** 2]),
+        'noise_covar': CovarianceMatrix(np.diag([sigma_el ** 2, sigma_b ** 2, sigma_range ** 2])),
         'translation_offset': np.array([[sensor_x], [sensor_y], [sensor_z]])
     }
     measurement_model = CartesianToElevationBearingRange(
@@ -141,14 +204,12 @@ def main():
         noise_covar=sensor_parameters['noise_covar'],
         translation_offset=sensor_parameters['translation_offset']
     )
-    observation_histories = get_observation_histories(
-        truths, timesteps, measurement_model, sensor_parameters, scenario_parameters['n_mc_runs']
-    )
+    observations = get_observation_history(truths, timesteps, measurement_model, sensor_parameters)
 
-    # Put together a filter
+    # Next, we specify filtering solution. First, we specify an implementation of the filtering recursion
     predictor = ExtendedKalmanPredictor(transition_model)
     updater = IPLFKalmanUpdater()
-
+    # Second, we specify the data association algorithm
     hypothesiser = PDAHypothesiser(
         predictor=predictor,
         updater=updater,
@@ -157,16 +218,12 @@ def main():
     )
     data_associator = JPDA(hypothesiser=hypothesiser)
 
-    tracks_JPDA_list = []
-    for observation_history in observation_histories:
-        tracks_JPDA = do_JPDA(priors, timesteps, observation_history, data_associator)
-        tracks_JPDA_list.append(tracks_JPDA)
+    tracks = do_JPDA(priors, timesteps, observations, data_associator)
 
     plotter = Plotterly()
-    mc_run_to_plot = 0
     plotter.plot_ground_truths(truths, [0, 2], line=dict(dash="dash", color='black'))
-    plotter.plot_measurements(observation_histories[mc_run_to_plot], [0, 2])
-    plotter.plot_tracks(tracks_JPDA_list[mc_run_to_plot], [0, 2], uncertainty=True)
+    plotter.plot_measurements(observations, [0, 2])
+    plotter.plot_tracks(tracks, [0, 2], uncertainty=True)
     plotter.fig.show()
 
 
