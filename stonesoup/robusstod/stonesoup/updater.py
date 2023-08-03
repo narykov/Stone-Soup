@@ -130,9 +130,7 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
         while self.measure(prev_state, post_state) > self.tolerance:
 
             if iterations >= self.max_iterations:
-                # TODO: include below to receive warnings on every step of the filtering recursion
-                # warnings.simplefilter('always', UserWarning)
-                warnings.warn("IPLF update did not converge")
+                warnings.warn("IPLF update reached maximum number of iterations.")
                 break
 
             hypothesis.prediction = Prediction.from_state(
