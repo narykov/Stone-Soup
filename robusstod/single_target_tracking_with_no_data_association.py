@@ -58,7 +58,7 @@ def main():
     # then converting them into Cartesian domain.
 
     a, e, i, w, omega, nu = (9164000, 0.03, 70, 0, 0, 0)
-    # the values above from Gemma https://github.com/alecksphillips/SatelliteModel/blob/main/Stan-InitialStateTarget.py
+    # the values above are from https://github.com/alecksphillips/SatelliteModel/blob/main/Stan-InitialStateTarget.py
     # a, e, i, w, omega, nu (m, _, deg, deg, deg, deg)
     # NB: a, e, I, RAAN, argP, ta (km, _, rad, rad, rad, rad) as in https://godot.io.esa.int/tutorials/T04_Astro/T04scv/
     K = np.array([a, e, np.radians(i), np.radians(w), np.radians(omega), np.radians(nu)])  # now in SI units (m & rad)
