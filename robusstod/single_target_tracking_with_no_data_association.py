@@ -18,11 +18,13 @@ from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
 from stonesoup.types.prediction import GaussianStatePrediction
 from stonesoup.types.track import Track
 
+# ROBUSSTOD MODULES
 from stonesoup.robusstod.stonesoup.models.transition import LinearisedDiscretisation
 from stonesoup.robusstod.stonesoup.predictor import ExtendedKalmanPredictor
 from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
 from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
+
 use_godot = True
 if use_godot:
     from stonesoup.robusstod.physics.godot import KeplerianToCartesian, twoBody3d_da
@@ -54,7 +56,7 @@ def main():
     }
     timesteps = [start_time + k * time_parameters['time_interval'] for k in range(time_parameters['n_time_steps'])]
 
-    # We begin by specifying the mean state of a target state by picking a credible set of Keplerian elements, and
+    # We begin by specifying the true initial target state by picking a credible set of Keplerian elements, and
     # then converting them into Cartesian domain.
 
     a, e, i, w, omega, nu = (9164000, 0.03, 70, 0, 0, 0)
@@ -71,7 +73,6 @@ def main():
     initial_covariance = CovarianceMatrix(np.diag([50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2]))
 
     deviation = np.linalg.cholesky(initial_covariance).T @ np.random.normal(size=initial_state.state_vector.shape)
-    # deviation = np.matrix([-22068.01433784, 69.37315652, 507.76211348, -86.74038986, -58321.63970861, 89.04789997])
     prior = GaussianStatePrediction(state_vector=initial_state.state_vector + deviation,
                                     covar=initial_covariance,
                                     timestamp=start_time)
@@ -82,8 +83,8 @@ def main():
     )
 
     # Generate ground truth trajectory, using the initial target state, target dynamics and the grid of timesteps
-    successive_time_steps = timesteps[1:]  # dropping the very first start_time
     truth = GroundTruthPath(initial_state)
+    successive_time_steps = timesteps[1:]  # dropping the very first start_time
     for timestamp in successive_time_steps:
         truth.append(GroundTruthState(
             transition_model.function(state=truth[-1], noise=True, time_interval=time_parameters['time_interval']),
