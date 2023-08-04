@@ -121,17 +121,25 @@ def main():
 
     # Here we finally specify how the filtering recursion is implemented
     predictor = ExtendedKalmanPredictor(transition_model)
-    updater = IPLFKalmanUpdater()
+    updater = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5)  # Using default values
 
     # Perform tracking/filtering
-    track_stt = do_single_target_tracking(prior=prior, predictor=predictor, updater=updater, measurements=measurements)
+    track = do_single_target_tracking(prior=prior, predictor=predictor, updater=updater, measurements=measurements)
 
-    # Plotting the results
+    # Plotting the results using Plotterly
     plotter = Plotterly()
     plotter.plot_ground_truths(truth, [0, 2], truths_label='Ground truth', line=dict(dash="dash", color='black'))
     plotter.plot_measurements(measurements, [0, 2], measurements_label='Measurements')
-    plotter.plot_tracks(track_stt, [0, 2], uncertainty=True, track_label='IPLF track')
+    plotter.plot_tracks(track, [0, 2], uncertainty=True, track_label='IPLF track')
     plotter.fig.show()
+
+    # # Plotting results using Plotter
+    # from stonesoup.plotter import Plotter
+    # plotter = Plotter()
+    # plotter.plot_ground_truths(truth, [0, 2], truths_label='Ground truth')
+    # plotter.plot_measurements(measurements, [0, 2], measurements_label='Measurements')
+    # plotter.plot_tracks(track, [0, 2], uncertainty=True, track_label='IPLF track')
+    # plotter.fig.show()
 
 
 if __name__ == "__main__":
