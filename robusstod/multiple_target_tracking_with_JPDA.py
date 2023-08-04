@@ -208,7 +208,7 @@ def main():
 
     # Next, we specify filtering solution. First, we specify an implementation of the filtering recursion
     predictor = ExtendedKalmanPredictor(transition_model)
-    updater = IPLFKalmanUpdater()
+    updater = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5)  # Using default values
     # Second, we specify the data association algorithm
     hypothesiser = PDAHypothesiser(
         predictor=predictor,
