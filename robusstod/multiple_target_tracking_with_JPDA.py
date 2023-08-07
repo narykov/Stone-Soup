@@ -6,10 +6,13 @@ Tracking multiple orbiting object with detection failures (false alarms and miss
 This is a demonstration using the implemented IPLF filter in the context of space situation awareness.
 """
 
+import sys
 import numpy as np
 from datetime import datetime, timedelta
+
 from scipy.stats import uniform
 from ordered_set import OrderedSet
+
 from stonesoup.functions import gm_reduce_single
 from stonesoup.plotter import Plotterly
 from stonesoup.models.measurement.nonlinear import CartesianToElevationBearingRange
@@ -31,7 +34,12 @@ from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
 
 use_godot = False
-if not use_godot:
+if use_godot:
+    try:
+        import godot
+    except ModuleNotFoundError as e:
+        print(e.msg)
+        sys.exit(1)  # the exit code of 1 is a convention that means something went wrong
     from stonesoup.robusstod.physics.godot import KeplerianToCartesian, twoBody3d_da
 else:
     from stonesoup.robusstod.physics.basic import KeplerianToCartesian, twoBody3d_da
