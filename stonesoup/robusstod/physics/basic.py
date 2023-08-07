@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 
+
 def KeplerianToCartesian(K, GM, ndim, mapping_position, mapping_velocity):
     """ Based on KeplerianToCartesian from https://github.com/alecksphillips/SatelliteModel/blob/main/transforms.py """
 
