@@ -26,7 +26,7 @@ from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
 from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
 
-use_godot = True
+use_godot = False
 if use_godot:
     try:
         import godot
