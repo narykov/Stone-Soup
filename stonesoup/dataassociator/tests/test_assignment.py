@@ -1,7 +1,7 @@
 from ...types.association import AssociationSet, TimeRangeAssociation
 from ...types.time import TimeRange, CompoundTimeRange
 from ...types.track import Track
-from .._assignment import multidimensional_deconfliction
+from .._assignment import multidimensional_deconfliction, check_if_no_conflicts
 import datetime
 import pytest
 
