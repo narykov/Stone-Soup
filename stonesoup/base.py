@@ -236,15 +236,27 @@ class BaseRepr(Repr):
         else:
             return '[{}]'.format(',\n '.join(self.repr1(x, level - 1) for x in obj))
 
+    # @classmethod
+    # def whitespace_remove(cls, maxlen_whitespace, val):
+    #     """Remove excess whitespace, replacing with ellipses"""
+    #     large_whitespace = ' ' * (maxlen_whitespace+1)
+    #     fixed_whitespace = ' ' * maxlen_whitespace
+    #     while excess := val.find(large_whitespace) != -1:   # Find the excess whitespace, if any
+    #         line_end = ''.join(val[excess:].partition('\n')[1:])
+    #         val = ''.join([val[0:excess], fixed_whitespace, '...', line_end])
+    #     return val
     @classmethod
     def whitespace_remove(cls, maxlen_whitespace, val):
         """Remove excess whitespace, replacing with ellipses"""
         large_whitespace = ' ' * (maxlen_whitespace+1)
         fixed_whitespace = ' ' * maxlen_whitespace
-        while excess := val.find(large_whitespace) != -1:   # Find the excess whitespace, if any
+        if large_whitespace in val:
+            excess = val.find(large_whitespace)  # Find the excess whitespace
             line_end = ''.join(val[excess:].partition('\n')[1:])
             val = ''.join([val[0:excess], fixed_whitespace, '...', line_end])
-        return val
+            return cls.whitespace_remove(maxlen_whitespace, val)
+        else:
+            return val
 
 
 class BaseMeta(ABCMeta):
