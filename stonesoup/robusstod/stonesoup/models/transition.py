@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.linalg import expm
 import torch
+from collections.abc import Callable
 
 from ....types.array import StateVector
 from ....models.transition.nonlinear import GaussianTransitionModel
@@ -15,7 +16,7 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
 
     linear_noise_coeffs: np.ndarray = Property(
         doc=r"The acceleration noise diffusion coefficients :math:`[q_x, \: q_y, \: q_z]^T`")
-    diff_equation: staticmethod = Property(doc=r"Differential equation describing the force model")
+    diff_equation: Callable = Property(doc=r"Differential equation describing the force model")
 
     @property
     def ndim_state(self):
