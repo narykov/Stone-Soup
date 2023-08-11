@@ -37,8 +37,10 @@ if use_godot:
         print(e.msg)
         sys.exit(1)  # the exit code of 1 is a convention that means something went wrong
     from stonesoup.robusstod.physics.godot import KeplerianToCartesian, diff_equation
+    fig_title = ' with GODOT functions'
 else:
     from stonesoup.robusstod.physics.basic import KeplerianToCartesian, diff_equation
+    fig_title = ' with basic functions'
 
 
 def do_single_target_tracking(prior=None, predictor=None, updater=None, measurements=None):
@@ -143,6 +145,7 @@ def main():
 
     # Plotting the results using Plotterly
     plotter = Plotterly()
+    plotter.fig.update_layout(title=dict(text='Processing results' + fig_title), title_x=0.5)
     plotter.plot_ground_truths(truth, [0, 2], truths_label='Ground truth', line=dict(dash="dash", color='black'))
     plotter.plot_tracks(Track(prior), [0, 2], uncertainty=True, track_label='Target prior')
     plotter.plot_measurements(measurements, [0, 2], measurements_label='Measurements')
