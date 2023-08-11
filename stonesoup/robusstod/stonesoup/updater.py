@@ -2,7 +2,6 @@ import warnings
 import numpy as np
 from functools import lru_cache
 
-
 from ...base import Property
 from ...functions import gauss2sigma, unscented_transform
 from ...types.prediction import Prediction, MeasurementPrediction
@@ -55,7 +54,6 @@ class UnscentedKalmanUpdater(UnscentedKalmanUpdaterOriginal):
             predicted_state, meas_pred_mean, meas_pred_covar, cross_covar=cross_covar)
 
 
-
 class IPLFKalmanUpdater(UnscentedKalmanUpdater):
     """
     Description goes here.
@@ -73,7 +71,7 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
         doc="Number of iterations before while loop is exited and a non-convergence warning is "
             "returned")
 
-    def slr_calculations(self, prediction, measurement_model, **kwargs):
+    def _slr_calculations(self, prediction, measurement_model, **kwargs):
         """
         Notation follows https://github.com/Agarciafernandez/IPLF/blob/main/IPLF_maneuvering.m
         """
@@ -123,7 +121,11 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
         measurement_model = self._check_measurement_model(hypothesis.measurement.measurement_model)
 
         # The first iteration is just the application of the UKF update.
-        post_state = super().update(hypothesis, **kwargs)
+        hypothesis.measurement_prediction = super().predict_measurement(
+            predicted_state=hypothesis.prediction,
+            measurement_model=measurement_model
+        )  # UKF measurement prediction that relies on Unscented Transform and is required in the update
+        post_state = super().update(hypothesis, **kwargs)  # <- just this line alone isn't enough as it implements KF
 
         # Now update the measurement prediction mean and loop
         iterations = 1
@@ -140,7 +142,7 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
                 timestamp=post_state.timestamp
             )
 
-            slr = self.slr_calculations(hypothesis.prediction, measurement_model)
+            slr = self._slr_calculations(hypothesis.prediction, measurement_model)
 
             measurement_model_linearized = GeneralLinearGaussian(
                 ndim_state=measurement_model.ndim_state,
@@ -149,11 +151,11 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
                 bias_value=slr['b_l'],
                 noise_covar=measurement_model.noise_covar + slr['Omega_l'])
 
-            hypothesis.measurement_prediction = super(UnscentedKalmanUpdater, self).predict_measurement(
+            hypothesis.measurement_prediction = super().predict_measurement(
                 predicted_state=hypothesis.prediction,
                 measurement_model=measurement_model_linearized)
 
-            post_state = super(UnscentedKalmanUpdater, self).update(hypothesis, **kwargs)
+            post_state = super().update(hypothesis, **kwargs)
             post_state.covar = (post_state.covar + post_state.covar.T) / 2
             try:
                 np.linalg.cholesky(post_state.covar)
