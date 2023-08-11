@@ -145,7 +145,7 @@ def main():
 
     # Plotting the results using Plotterly
     plotter = Plotterly()
-    plotter.fig.update_layout(title=dict(text='Processing results' + fig_title), title_x=0.5)
+    plotter.fig.update_layout(title=dict(text='Single target processing' + fig_title), title_x=0.5)
     plotter.plot_ground_truths(truth, [0, 2], truths_label='Ground truth', line=dict(dash="dash", color='black'))
     plotter.plot_tracks(Track(prior), [0, 2], uncertainty=True, track_label='Target prior')
     plotter.plot_measurements(measurements, [0, 2], measurements_label='Measurements')
