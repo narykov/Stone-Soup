@@ -33,7 +33,7 @@ def KeplerianToCartesian(K, GM, ndim, mapping_position, mapping_velocity):
     return state_vector
 
 
-def twoBody3d_da(state, GM=None):
+def diff_equation(state, GM=None):
     if GM is None:
         GM = 398600400000000.0
 
