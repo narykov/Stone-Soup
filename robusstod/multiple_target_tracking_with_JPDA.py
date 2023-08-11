@@ -14,8 +14,12 @@ from datetime import datetime, timedelta
 from scipy.stats import uniform
 from ordered_set import OrderedSet
 
+from stonesoup.dataassociator.neighbour import GNNWith2DAssignment
+from stonesoup.dataassociator.probability import JPDA
 from stonesoup.functions import gm_reduce_single
 from stonesoup.plotter import Plotterly
+from stonesoup.hypothesiser.distance import DistanceHypothesiser
+from stonesoup.measures import Mahalanobis
 from stonesoup.models.measurement.nonlinear import CartesianToElevationBearingRange
 from stonesoup.types.array import StateVectors, CovarianceMatrix
 from stonesoup.types.detection import TrueDetection, Clutter
@@ -24,7 +28,6 @@ from stonesoup.types.prediction import GaussianStatePrediction
 from stonesoup.types.state import State
 from stonesoup.types.track import Track
 from stonesoup.types.update import GaussianStateUpdate
-from stonesoup.dataassociator.probability import JPDA
 
 # ROBUSSTOD MODULES
 from stonesoup.robusstod.stonesoup.hypothesiser import PDAHypothesiser
@@ -34,7 +37,7 @@ from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
 from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
 
-use_godot = True
+use_godot = False
 if use_godot:
     try:
         import godot
@@ -42,8 +45,10 @@ if use_godot:
         print(e.msg)
         sys.exit(1)  # the exit code of 1 is a convention that means something went wrong
     from stonesoup.robusstod.physics.godot import KeplerianToCartesian, diff_equation
+    fig_title = ' with GODOT functions'
 else:
     from stonesoup.robusstod.physics.basic import KeplerianToCartesian, diff_equation
+    fig_title = ' with basic functions'
 
 
 def get_observation_history(truths, timesteps, measurement_model, sensor_parameters):
@@ -96,7 +101,7 @@ def get_observation_history(truths, timesteps, measurement_model, sensor_paramet
     return observation_history
 
 
-def do_JPDA(priors, timesteps, observation_history, data_associator):
+def do_jpda(priors, timesteps, observation_history, data_associator):
     """Implementation follows https://stonesoup.readthedocs.io/en/latest/auto_tutorials/08_JPDATutorial.html"""
 
     tracks = set()
@@ -133,6 +138,28 @@ def do_JPDA(priors, timesteps, observation_history, data_associator):
 
     return tracks
 
+
+def do_gnn(priors, timesteps, observation_history, data_associator):
+    """GNN https://stonesoup.readthedocs.io/en/latest/auto_tutorials/06_DataAssociation-MultiTargetTutorial.html"""
+
+    tracks = set()
+    for prior in priors:
+        tracks.add(Track([prior]))
+
+    for timestep, observation in zip(timesteps, observation_history):
+        # Calculate all hypothesis pairs and associate the elements in the best subset to the tracks.
+        hypotheses = data_associator.associate(tracks,
+                                               observation,
+                                               timestep)
+        for track in tracks:
+            hypothesis = hypotheses[track]
+            if hypothesis.measurement:
+                post = data_associator.hypothesiser.updater.update(hypothesis)
+                track.append(post)
+            else:  # When data associator says no detections are good enough, we'll keep the prediction
+                track.append(hypothesis.prediction)
+
+    return tracks
 
 def main():
     start_time = datetime(2000, 1, 1)
@@ -218,22 +245,43 @@ def main():
     # Next, we specify filtering solution. First, we specify an implementation of the filtering recursion
     predictor = ExtendedKalmanPredictor(transition_model)
     updater = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5)  # Using default values
-    # Second, we specify the data association algorithm
-    hypothesiser = PDAHypothesiser(
-        predictor=predictor,
-        updater=updater,
-        clutter_spatial_density=sensor_parameters['clutter_spatial_density'],
-        prob_detect=sensor_parameters['prob_detect']
+
+    # Second, we specify the data association algorithms
+    data_associator_gnn = GNNWith2DAssignment(
+        hypothesiser=DistanceHypothesiser(
+            predictor=predictor,
+            updater=updater,
+            measure=Mahalanobis(),
+            missed_distance=3
+        )
     )
-    data_associator = JPDA(hypothesiser=hypothesiser)
 
-    tracks = do_JPDA(priors, timesteps, observations, data_associator)
+    data_associator_jpda = JPDA(
+        hypothesiser=PDAHypothesiser(
+            predictor=predictor,
+            updater=updater,
+            clutter_spatial_density=sensor_parameters['clutter_spatial_density'],
+            prob_detect=sensor_parameters['prob_detect']
+        )
+    )
 
-    plotter = Plotterly()
-    plotter.plot_ground_truths(truths, [0, 2], line=dict(dash="dash", color='black'))
-    plotter.plot_measurements(observations, [0, 2])
-    plotter.plot_tracks(tracks, [0, 2], uncertainty=True)
-    plotter.fig.show()
+    # Do tracking and data association
+    tracks_gnn = do_gnn(priors, timesteps, observations, data_associator_gnn)
+    tracks_jpda = do_jpda(priors, timesteps, observations, data_associator_jpda)
+
+    # Printing the results
+    tracking_results = {
+        'Global Nearest Neighbour (GNN)': tracks_gnn,
+        'Joint Probabilistic Data Association (JPDA)': tracks_jpda
+    }
+
+    for key, value in tracking_results.items():
+        plotter = Plotterly()
+        plotter.fig.update_layout(title=dict(text=key + fig_title), title_x=0.5)
+        plotter.plot_ground_truths(truths, [0, 2], line=dict(dash="dash", color='black'))
+        plotter.plot_measurements(observations, [0, 2])
+        plotter.plot_tracks(value, [0, 2], uncertainty=True)
+        plotter.fig.show()
 
 
 if __name__ == "__main__":
