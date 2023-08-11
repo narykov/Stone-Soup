@@ -18,7 +18,7 @@ def KeplerianToCartesian(K, mu_earth, ndim, mapping_position, mapping_velocity):
     return state_vector
 
 
-def twoBody3d_da(state, **kwargs):
+def diff_equation(state, **kwargs):
     (x, x_dot, y, y_dot, z, z_dot) = state
     uni = cosmos.Universe(cosmos.util.load_yaml("universe.yml"))
     tensor1 = torch.tensor([x, y, z, x_dot, y_dot, z_dot], requires_grad=True)
