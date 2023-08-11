@@ -65,6 +65,7 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         da = self.diff_equation
         dt = kwargs['time_interval'].total_seconds()
         sv2 = self._do_linearise(da, state, dt)
+        new_state = StateVector(sv2)
 
         if isinstance(noise, bool) or noise is None:
             if noise:
@@ -72,7 +73,7 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
             else:
                 noise = 0
 
-        return np.array([sv2]).T + noise
+        return new_state + noise
 
 
     def covar(self, time_interval, **kwargs):
