@@ -45,10 +45,10 @@ if use_godot:
         print(e.msg)
         sys.exit(1)  # the exit code of 1 is a convention that means something went wrong
     from stonesoup.robusstod.physics.godot import KeplerianToCartesian, diff_equation
-    fig_title = ' with GODOT functions'
+    fig_title = ' with GODOT physics'
 else:
     from stonesoup.robusstod.physics.basic import KeplerianToCartesian, diff_equation
-    fig_title = ' with basic functions'
+    fig_title = ' with basic physics'
 
 
 def get_observation_history(truths, timesteps, measurement_model, sensor_parameters):
