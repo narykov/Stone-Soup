@@ -4,6 +4,7 @@
 Tracking multiple orbiting object with detection failures (false alarms and missed detections)
 ========================================
 This is a demonstration using the implemented IPLF filter in the context of space situation awareness.
+It can use either built-in model of acceleration or GODOT's capability to evaluate acceleration.
 """
 
 import sys
@@ -33,16 +34,16 @@ from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
 from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
 
-use_godot = False
+use_godot = True
 if use_godot:
     try:
         import godot
     except ModuleNotFoundError as e:
         print(e.msg)
         sys.exit(1)  # the exit code of 1 is a convention that means something went wrong
-    from stonesoup.robusstod.physics.godot import KeplerianToCartesian, twoBody3d_da
+    from stonesoup.robusstod.physics.godot import KeplerianToCartesian, diff_equation
 else:
-    from stonesoup.robusstod.physics.basic import KeplerianToCartesian, twoBody3d_da
+    from stonesoup.robusstod.physics.basic import KeplerianToCartesian, diff_equation
 
 
 def get_observation_history(truths, timesteps, measurement_model, sensor_parameters):
@@ -103,7 +104,7 @@ def do_JPDA(priors, timesteps, observation_history, data_associator):
         tracks.add(Track(prior_pdf))
 
     for timestep, observation in zip(timesteps, observation_history):
-        # NB: Observation is understood here as a set of measurements and false alarms.
+        # NB: Observation is understood here as a set of true measurements and false alarms.
         hypotheses = data_associator.associate(tracks, observation, timestep, allow_singular=True)
 
         # Loop through each track, performing the association step with weights adjusted according to JPDA.
@@ -156,7 +157,7 @@ def main():
 
     scenario_parameters = {
         'n_time_steps': 10,
-        'time_interval': timedelta(seconds=50),
+        'time_interval': timedelta(seconds=10),
         'n_targets': 5,
         'population_mean': population_mean,
         'population_covariance': population_covariance,
@@ -180,7 +181,7 @@ def main():
 
     timesteps = [start_time + k * scenario_parameters['time_interval'] for k in range(scenario_parameters['n_time_steps'])]
     transition_model = LinearisedDiscretisation(
-        diff_equation=twoBody3d_da,
+        diff_equation=diff_equation,
         linear_noise_coeffs=get_noise_coefficients(GM)
     )
     truths = OrderedSet()
