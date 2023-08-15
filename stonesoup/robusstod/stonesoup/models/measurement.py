@@ -3,6 +3,18 @@ from ....types.array import CovarianceMatrix, StateVector, Matrix
 from ....models.base import LinearModel, GaussianModel
 from ....models.measurement.base import MeasurementModel
 
+import godot
+from ....models.base import ReversibleModel
+from ....models.measurement.nonlinear import NonLinearGaussianMeasurement
+from ....types.array import StateVectors
+import numpy as np
+from scipy.linalg import inv, pinv, block_diag
+from ....functions import cart2pol, pol2cart,  cart2sphere, sphere2cart, cart2angles, build_rotation_matrix
+from collections.abc import Callable
+from typing import Sequence, Tuple, Union
+from ....types.angle import Bearing, Elevation
+
+
 
 class GeneralLinearGaussian(MeasurementModel, LinearModel, GaussianModel):
     meas_matrix: Matrix = Property(doc="Measurement matrix")
@@ -71,3 +83,76 @@ class GeneralLinearGaussian(MeasurementModel, LinearModel, GaussianModel):
                 noise = 0
 
         return self.matrix(**kwargs)@state.state_vector + self.bias_value + noise
+
+
+class CartesianToElevationBearingRangeGODOT(NonLinearGaussianMeasurement, ReversibleModel):
+    uni: Callable = Property(doc="Universe")
+    station: Callable = Property(doc="Sensor location")
+
+    @property
+    def ndim_meas(self) -> int:
+        """ndim_meas getter method
+
+        Returns
+        -------
+        :class:`int`
+            The number of measurement dimensions
+        """
+
+        return 3
+
+    def function(self, state, timestamp, noise=False, **kwargs) -> StateVector:
+
+        if isinstance(noise, bool) or noise is None:
+            if noise:
+                noise = self.rvs()
+            else:
+                noise = 0
+
+        # # Account for origin offset
+        # xyz = state.state_vector[self.mapping, :] - self.translation_offset
+
+        # # Rotate coordinates
+        # xyz_rot = self._rotation_matrix @ xyz
+
+        # # Convert to Spherical
+        # rho, phi, theta = cart2sphere(*xyz_rot)
+        # elevations = [Elevation(i) for i in np.atleast_1d(theta)]
+        # bearings = [Bearing(i) for i in np.atleast_1d(phi)]
+        # rhos = np.atleast_1d(rho)
+        # 0. Turn timestamp into epoch
+        timeiso = timestamp.isoformat(timespec='microseconds')
+        timescale = 'TDB'
+        t = ' '.join([timeiso, timescale])
+        epoch = godot.core.tempo.XEpoch(t)
+        # 1. Convert state to Orbital coordinates
+        # 2. Convert orbital to GODOT object
+        # spacecraft = godot.
+        spacecraft = [state]
+
+        rhos = self.uni.frames.distance(self.station, spacecraft, epoch)
+        elevations = []
+        bearings = []
+
+
+        return StateVectors([elevations, bearings, rhos]) + noise
+
+    def inverse_function(self, detection, **kwargs) -> StateVector:
+
+        theta, phi, rho = detection.state_vector
+        xyz = StateVector(sphere2cart(rho, phi, theta))
+
+        inv_rotation_matrix = inv(self._rotation_matrix)
+        xyz = inv_rotation_matrix @ xyz
+
+        res = np.zeros((self.ndim_state, 1)).view(StateVector)
+        res[self.mapping, :] = xyz + self.translation_offset
+
+        return res
+
+    def rvs(self, num_samples=1, **kwargs) -> Union[StateVector, StateVectors]:
+        out = super().rvs(num_samples, **kwargs)
+        out = np.array([[Elevation(0.)], [Bearing(0.)], [0.]]) + out
+        return out
+
+    # uni.frames.distance(station, spacecraft, epoch)
