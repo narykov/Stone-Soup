@@ -19,6 +19,15 @@ def KeplerianToCartesian(K, mu_earth, ndim, mapping_position, mapping_velocity):
 
 
 def diff_equation(state, **kwargs):
+
+    if 'timestamp' in kwargs:
+        timeiso = kwargs['timestamp'].isoformat(timespec='microseconds')
+        timescale = 'TDB'
+        t = ' '.join([timeiso, timescale])
+        epoch = tempo.XEpoch(t)
+    else:
+        epoch = tempo.XEpoch()
+
     (x, x_dot, y, y_dot, z, z_dot) = state
     uni = cosmos.Universe(cosmos.util.load_yaml("universe.yml"))
     tensor1 = torch.tensor([x, y, z, x_dot, y_dot, z_dot], requires_grad=True)
@@ -26,7 +35,7 @@ def diff_equation(state, **kwargs):
 
     tscale = tempo.TimeScale.TDB
 
-    epoch = tempo.XEpoch()
+    # epoch = tempo.XEpoch()
     satellite = uni.frames.addPoint("Satellite", tscale)
     icrf = uni.frames.axesId('ICRF')
     earth = uni.frames.pointId('Earth')
