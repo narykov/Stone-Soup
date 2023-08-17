@@ -60,7 +60,7 @@ def do_single_target_tracking(prior=None, predictor=None, updater=None, measurem
 
 def main():
     np.random.seed(1991)
-    start_time = datetime(2000, 1, 1)
+    start_time = datetime(2000, 1, 1, 0, 0, 0, 0)  # added microseconds
     time_parameters = {
         'n_time_steps': 10,
         'time_interval': timedelta(seconds=10)
@@ -123,7 +123,10 @@ def main():
     from stonesoup.robusstod.stonesoup.models.measurement import CartesianToElevationBearingRangeGODOT
     import godot
     uni = godot.cosmos.Universe(godot.cosmos.util.load_yaml("universe.yml"))
-    station = "launch_GeoSat_center"
+    tscale = godot.core.tempo.TimeScale.TDB
+    uni.frames.addPoint("Satellite", tscale)
+    station = uni.frames.pointId('Earth')
+
     measurement_model = CartesianToElevationBearingRangeGODOT(
         ndim_state=sensor_parameters['ndim_state'],
         mapping=sensor_parameters['mapping'],
