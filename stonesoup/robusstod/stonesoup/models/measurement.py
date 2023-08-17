@@ -13,7 +13,7 @@ from ....functions import cart2pol, pol2cart,  cart2sphere, sphere2cart, cart2an
 from collections.abc import Callable
 from typing import Sequence, Tuple, Union
 from ....types.angle import Bearing, Elevation
-
+from ...physics.godot import rng
 
 
 class GeneralLinearGaussian(MeasurementModel, LinearModel, GaussianModel):
@@ -88,6 +88,19 @@ class GeneralLinearGaussian(MeasurementModel, LinearModel, GaussianModel):
 class CartesianToElevationBearingRangeGODOT(NonLinearGaussianMeasurement, ReversibleModel):
     uni: Callable = Property(doc="Universe")
     station: Callable = Property(doc="Sensor location")
+    translation_offset: StateVector = Property(
+        default=None,
+        doc="A 3x1 array specifying the Cartesian origin offset in terms of :math:`x,y,z` "
+            "coordinates.")
+
+    def __init__(self, *args, **kwargs):
+        """
+        Ensure that the translation offset is initiated
+        """
+        super().__init__(*args, **kwargs)
+        # Set values to defaults if not provided
+        if self.translation_offset is None:
+            self.translation_offset = StateVector([0] * 3)
 
     @property
     def ndim_meas(self) -> int:
@@ -101,7 +114,7 @@ class CartesianToElevationBearingRangeGODOT(NonLinearGaussianMeasurement, Revers
 
         return 3
 
-    def function(self, state, timestamp, noise=False, **kwargs) -> StateVector:
+    def function(self, state, noise=False, **kwargs) -> StateVector:
 
         if isinstance(noise, bool) or noise is None:
             if noise:
@@ -109,40 +122,29 @@ class CartesianToElevationBearingRangeGODOT(NonLinearGaussianMeasurement, Revers
             else:
                 noise = 0
 
-        # # Account for origin offset
-        # xyz = state.state_vector[self.mapping, :] - self.translation_offset
+        # Account for origin offset
+        xyz = state.state_vector[self.mapping, :] - self.translation_offset
 
-        # # Rotate coordinates
-        # xyz_rot = self._rotation_matrix @ xyz
+        # Rotate coordinates
+        xyz_rot = self.rotation_matrix @ xyz
 
-        # # Convert to Spherical
-        # rho, phi, theta = cart2sphere(*xyz_rot)
-        # elevations = [Elevation(i) for i in np.atleast_1d(theta)]
-        # bearings = [Bearing(i) for i in np.atleast_1d(phi)]
-        # rhos = np.atleast_1d(rho)
-        # 0. Turn timestamp into epoch
-        timeiso = timestamp.isoformat(timespec='microseconds')
-        timescale = 'TDB'
-        t = ' '.join([timeiso, timescale])
-        epoch = godot.core.tempo.XEpoch(t)
-        # 1. Convert state to Orbital coordinates
-        # 2. Convert orbital to GODOT object
-        # spacecraft = godot.
-        spacecraft = [state]
+        # Convert to Spherical
+        rho, phi, theta = cart2sphere(xyz_rot[0, :], xyz_rot[1, :], xyz_rot[2, :])
+        elevations = [Elevation(i) for i in theta]
+        bearings = [Bearing(i) for i in phi]
 
-        rhos = self.uni.frames.distance(self.station, spacecraft, epoch)
-        elevations = []
-        bearings = []
+        rho_basic = rho
+        rho = rng(state, self.station, self.uni, statevectors=isinstance(state.state_vector, StateVectors))
+        # print(rho_basic-rho) <- to verify that they return the same value
 
-
-        return StateVectors([elevations, bearings, rhos]) + noise
+        return StateVectors([elevations, bearings, rho]) + noise
 
     def inverse_function(self, detection, **kwargs) -> StateVector:
 
         theta, phi, rho = detection.state_vector
         xyz = StateVector(sphere2cart(rho, phi, theta))
 
-        inv_rotation_matrix = inv(self._rotation_matrix)
+        inv_rotation_matrix = inv(self.rotation_matrix)
         xyz = inv_rotation_matrix @ xyz
 
         res = np.zeros((self.ndim_state, 1)).view(StateVector)
@@ -154,5 +156,3 @@ class CartesianToElevationBearingRangeGODOT(NonLinearGaussianMeasurement, Revers
         out = super().rvs(num_samples, **kwargs)
         out = np.array([[Elevation(0.)], [Bearing(0.)], [0.]]) + out
         return out
-
-    # uni.frames.distance(station, spacecraft, epoch)
