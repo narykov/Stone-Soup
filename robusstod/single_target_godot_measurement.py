@@ -88,6 +88,8 @@ def main():
     prior = GaussianState(state_vector=initial_state.state_vector + deviation,
                           covar=initial_covariance,
                           timestamp=start_time)
+    #TODO: make prior look nice on the plot
+
 
     transition_model = LinearisedDiscretisation(
         diff_equation=diff_equation,
@@ -113,6 +115,7 @@ def main():
         'translation_offset': np.array([[sensor_x], [sensor_y], [sensor_z]])
     }
 
+    #TODO: remove unnecessary model
     measurement_model = CartesianToElevationBearingRange(
         ndim_state=sensor_parameters['ndim_state'],
         mapping=sensor_parameters['mapping'],
@@ -122,6 +125,8 @@ def main():
 
     from stonesoup.robusstod.stonesoup.models.measurement import CartesianToElevationBearingRangeGODOT
     import godot
+    #TODO: move imports to where appropriate
+
     uni = godot.cosmos.Universe(godot.cosmos.util.load_yaml("universe.yml"))
     tscale = godot.core.tempo.TimeScale.TDB
     uni.frames.addPoint("Satellite", tscale)
