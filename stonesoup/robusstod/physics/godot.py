@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import godot
 from godot.core import astro
 from godot.core import tempo, util, autodif as ad
 from godot.model import common
@@ -58,3 +59,33 @@ def diff_equation(state, **kwargs):
     return (x_dot, torch.tensor(accel[0], requires_grad=False),
             y_dot, torch.tensor(accel[1], requires_grad=False),
             z_dot, torch.tensor(accel[2], requires_grad=False))
+
+
+def rng(state, station, uni, **kwargs):
+    # check if more than a single state_vector and be prepared to return more; 'statevectors' carries the relevant flag
+    if kwargs['statevectors']:
+        vectors = [state_vector for state_vector in state.state_vector]
+    else:
+        vectors = [state.state_vector]
+
+    # obtain epoch
+    timeiso = state.timestamp.isoformat(timespec='microseconds')
+    timescale = 'TDB'
+    t = ' '.join([timeiso, timescale])
+    epoch = godot.core.tempo.XEpoch(t)
+
+    # other ids
+    icrf = uni.frames.axesId('ICRF')
+    satellite = uni.frames.pointId("Satellite")
+
+    rhos = []
+    for state_vector in vectors:
+        # obtain station and then range
+        (x, x_dot, y, y_dot, z, z_dot) = np.array(state_vector.T)[0]
+        pos = godot.core.autodif.Vector([x, y, z, x_dot, y_dot, z_dot], 'x0')
+        translation_model = godot.model.common.ConstantVectorTimeEvaluable(pos)
+        uni.frames.addTimeEvaluableTranslation(satellite, station, icrf, translation_model)
+        rho = uni.frames.distance(station, satellite, epoch)
+        rhos.append(rho.value())
+
+    return rhos
