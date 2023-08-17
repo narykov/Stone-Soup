@@ -8,14 +8,14 @@ ppisize=4096;
 scrsz = get(0,'ScreenSize');
 scn=[50, -30, 1*(scrsz(3)-200), 1*(scrsz(4)-50)];
 
-fn='/home/denbridge/rawrecs/fn2.raw';
+fn='fn2.raw';
 
 
 % fid4=fopen(fn);
 fid4=fopen(fn);
 
-% bpl=fread(fid4,[y1, x1],'uint8');
-bpl=fread(fid4,'uint8');
+bpl=fread(fid4,[y1, x1],'uint8');
+% bpl=fread(fid4,'uint8');
  figure
  imagesc(bpl)
 axis xy
