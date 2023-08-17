@@ -86,6 +86,8 @@ class GeneralLinearGaussian(MeasurementModel, LinearModel, GaussianModel):
 
 
 class CartesianToElevationBearingRangeGODOT(NonLinearGaussianMeasurement, ReversibleModel):
+    #TODO: rename the function to ROBUSSTOD, and maybe simply inherit the class for simplicity
+
     uni: Callable = Property(doc="Universe")
     station: Callable = Property(doc="Sensor location")
     translation_offset: StateVector = Property(
