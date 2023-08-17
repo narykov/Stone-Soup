@@ -29,20 +29,23 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         """
         return 6
 
-    def _get_jacobian(self, f, x):
+    def _get_jacobian(self, f, x, **kwargs):
+        timestamp = x.timestamp
+        da = lambda a: f(a, timestamp=timestamp)
         state = x.state_vector
         nx = len(state)
         A = np.zeros([nx, nx])
         state_input = [i for i in state]
 
-        jacrows = torch.autograd.functional.jacobian(f, torch.tensor(state_input))
+        jacrows = torch.autograd.functional.jacobian(da, torch.tensor(state_input))
         for i, r in enumerate(jacrows):
             A[i] = r
 
         return (A)
 
     def _do_linearise(self, da, x, dt):
-        dA = self._get_jacobian(da, x)  # state here is GroundTruthState
+        timestamp = x.timestamp
+        dA = self._get_jacobian(da, x, timestamp=timestamp)  # state here is GroundTruthState
         nx = len(x.state_vector)
         # Get \int e^{dA*s}\,ds
         int_eA = expm(dt * np.block([[dA, np.identity(nx)], [np.zeros([nx, 2 * nx])]]))[:nx, nx:]
@@ -54,8 +57,9 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         return newx
 
     def jacobian(self, state, **kwargs):
+        timestamp = state.timestamp
         da = self.diff_equation
-        dA = self._get_jacobian(da, state)  # state here is GroundTruthState
+        dA = self._get_jacobian(da, state, timestamp=timestamp)  # state here is GroundTruthState
         dt = kwargs['time_interval'].total_seconds()
         A = expm(dA * dt)
 
@@ -79,7 +83,8 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
     def covar(self, time_interval, **kwargs):
         da = self.diff_equation
         x = kwargs['prior']
-        dA = self._get_jacobian(da, x)  # state here is GroundTruthState
+        timestamp = x.timestamp
+        dA = self._get_jacobian(da, x, timestamp=timestamp)  # state here is GroundTruthState
 
         # Get Q
         q_xdot, q_ydot, q_zdot = self.linear_noise_coeffs
