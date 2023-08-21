@@ -9,6 +9,10 @@ from pathlib import Path
 
 
 class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
+    """ Inherits from FrameReader so, we can potentially use the CFAR and/or CCL feeders (see
+    https://github.com/narykov/Stone-Soup/blob/398e31bf4c0615f54aa768c49d1a0115d381896c/stonesoup/feeder/image.py#L15)
+    if we wish to. """
+
     datashape: tuple = Property(doc="The size of data array in y and x coordinates")
     datatype: np.dtype = Property(doc="Data type objects")
     start_time: datetime = Property(doc="Data type objects")
