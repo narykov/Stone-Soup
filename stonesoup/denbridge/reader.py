@@ -8,8 +8,8 @@ import numpy as np
 from pathlib import Path
 
 
-class BinaryFileReaderRAW(BinaryFileReader):
-    datashape: tuple = Property(doc="Shape")
+class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
+    datashape: tuple = Property(doc="The size of data array in y and x coordinates")
     datatype: np.dtype = Property(doc="Data type objects")
     start_time: datetime = Property(doc="Data type objects")
     time_step: datetime = Property(doc="timedelta")
@@ -26,8 +26,8 @@ class BinaryFileReaderRAW(BinaryFileReader):
                 # noinspection PyTypeChecker
                 vector = np.fromfile(f, count=self._count, dtype=self.datatype)
                 if vector.size == self._count:
-                    pixels = vector.reshape(self.datashape).T  # equivalent of DM's output
-                    frame = ImageFrame(pixels=pixels, timestamp=timestamp)  # turn it into Stone Soup object
+                    pixels = vector.reshape(self.datashape).T  # equivalent of Denbridge Marine's output
+                    frame = ImageFrame(pixels=pixels, timestamp=timestamp)  # turns it into Stone Soup object
                     timestamp += self.time_step
                 else:
                     break
