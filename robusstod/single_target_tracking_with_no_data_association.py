@@ -65,6 +65,7 @@ def main():
         'n_time_steps': 10,
         'time_interval': timedelta(seconds=10)
     }
+    # TODO: consider arbitrary time intervals to demonstrate flexibility of the approach
     timesteps = [start_time + k * time_parameters['time_interval'] for k in range(time_parameters['n_time_steps'])]
 
     # We begin by specifying the true initial target state by picking a credible set of Keplerian elements, and
