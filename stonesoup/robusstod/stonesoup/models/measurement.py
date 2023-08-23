@@ -86,7 +86,7 @@ class GeneralLinearGaussian(MeasurementModel, LinearModel, GaussianModel):
 
 
 class CartesianToElevationBearingRangeGODOT(NonLinearGaussianMeasurement, ReversibleModel):
-    #TODO: rename the function to ROBUSSTOD, and maybe simply inherit the class for simplicity
+    #TODO: rename the function to ROBUSSTOD, and maybe inherit CartesianToElevationBearingRange for simplicity
 
     uni: Callable = Property(doc="Universe")
     station: Callable = Property(doc="Sensor location")
@@ -135,8 +135,7 @@ class CartesianToElevationBearingRangeGODOT(NonLinearGaussianMeasurement, Revers
         elevations = [Elevation(i) for i in theta]
         bearings = [Bearing(i) for i in phi]
 
-        rho_basic = rho
-        rho = rng(state, self.station, self.uni, statevectors=isinstance(state.state_vector, StateVectors))
+        # rho_godot = distance(state, self.station, self.uni, statevectors=isinstance(state.state_vector, StateVectors))
         # print(rho_basic-rho) <- to verify that they return the same value
 
         return StateVectors([elevations, bearings, rho]) + noise
