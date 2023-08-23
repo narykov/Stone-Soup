@@ -61,9 +61,15 @@ def diff_equation(state, **kwargs):
             z_dot, torch.tensor(accel[2], requires_grad=False))
 
 
-def rng(state, station, uni, **kwargs):
-    # check if more than a single state_vector and be prepared to return more; 'statevectors' carries the relevant flag
+def distance(state, station, uni, **kwargs):
+    """Adapted from range measurement as implemented in
+    https://gitlab.space-codev.org/godot/godotpy/-/blob/master/godotpy/godot/cosmos/orb/tests/CustomODTest.py,
+    i.e., using 'uni.frames.distance()' and ignoring the 'godot.model.obs' module.
+    """
+
     if kwargs['statevectors']:
+        # check if more than a single state_vector and be prepared to return more;
+        # 'statevectors' carries the relevant flag
         vectors = [state_vector for state_vector in state.state_vector]
     else:
         vectors = [state.state_vector]
@@ -89,3 +95,14 @@ def rng(state, station, uni, **kwargs):
         rhos.append(rho.value())
 
     return rhos
+
+
+def range2(state, station, uni, **kwargs):
+    """
+    This is a function that implements range measurements using GODOTPY functionality.
+    It is based on the tutorial introduction
+    https://godot.io.esa.int/godotpy/user_guide/notebooks/obs_intro.html.
+    And employs the '2-way Range observables' module:
+    https://godot.io.esa.int/godotpy/api_reference/generated/godot.model.obs.Range2.html.
+    """
+    pass

@@ -1,0 +1,306 @@
+#! version
+version: '3.0'
+#! version
+
+#! spacetime
+spacetime:
+  system: BCRS
+#! spacetime
+
+#! mappings
+mappings:
+  # Map SOLO/GAIA spice id to names, otherwise it can be accessed as eg. "NAIF_ID:-26"
+  - name: interplanetary
+    data:
+      '-26': SOLO
+      '-54': GAIA
+  # Map spice ephemeris constant to constant book
+  - name: spiceConstMap
+    data:
+      BODY399_GM: EarthGM
+#! mappings
+
+#! ephemeris
+ephemeris:
+  # Named ephemeris objects with files to load
+  - name: de405
+    files:
+      - share/test/unxp2000.405
+    cache: false # Do not load file to memory
+  # Another ephemeris for constants, default is loading file contents to memory
+  - name: gm431
+    files:
+      - share/test/gm_de431.tpc
+#! ephemeris
+
+#! stations
+stations:
+  # Create station database for Earth ground stations
+  - name: earthStations
+    file: share/test/GroundStationsDatabase.json
+#! stations
+
+#! constants
+constants:
+  # Load constants from ephemeris, with optional additional mapping between names
+  ephemeris:
+    - source: gm431
+      mapping: spiceConstMap
+  # Add user defined data: always specified in SI (km, kg, s)
+  data:
+    EarthGM: 398600.4415 # Override default Earth GM
+    MoonGM: 4902.8029535968 # Override default Moon GM
+    ApophisGM: 0.0 # Add asteroid GM (approximately zero)
+    ApophisRadius: 0.186 # Add asteroid radius (185 m across)
+    ApophisSOI: 0.0 # No sphere of influence
+#! constants
+
+#! parameters
+parameters:
+  - name: mass
+    type: Parameter
+    value: 4700 kg
+  - name: cd
+    type: Parameter
+    value: '1.7'
+  - name: cr
+    type: Parameter
+    value: '1.5'
+#! parameters
+
+#! frames
+frames:
+  - name: ephem1
+    type: Ephem
+    config:
+      source: de405
+      mapping: interplanetary   # Custom (additional) mapping supplied
+    # We can also add ipf files, with optional mapping
+  - name: ITRF
+    type: AxesOrient
+    config:
+      model: IERS2000   # Earth body fixed model
+      nutation: share/test/nutation2000A.ipf   # Supply nutation interpolation file
+      erp: ''   # Use no pole correction
+  - name: Mars
+    type: AxesOrient
+    config:
+      model: MarsIAU2009   # Mars body fixed model
+    # Specify rotating axes based on two points
+  - name: EarthMoonRot
+    type: AxesLocalOrbital
+    config:
+      center: Earth   # Center of rotating frame
+      target: Moon   # Target point of direction X (or Y)
+      axes: Pos   # Position (X) or velocity (Y) based
+    # Frozen axes: instantenous, as frozen at a specific epoch
+  - name: ArianeLiftoff
+    type: AxesFrozen
+    config:
+      reference: ITRF
+      epoch: 2020-03-12T14:53:12 UTC
+    # Add topocentric axes from station database
+  - name: Solo
+    type: PointIpf
+    config:
+      file: share/test/sol.orb
+      interpOrder: 16
+      mapping: OratosLegacy
+    # Point defined by a Keplerian orbit
+  - name: Apophis
+    type: PointOrbit
+    config:
+      center: Sun   # Center of orbit
+      axes: ICRF   # Orbital axes (X-Y plane)
+      epoch: 2008-09-24T00:00:00 TDB   # reference epoch
+      sma: 137994522.0461 km   # Semi-major axes
+      ecc: 0.191197   # Eccentricity
+      inc: 20.450423 deg   # Inclination
+      ran: -3.946780 deg   # RAAN
+      aop: -25.489673 deg   # Argument of pericentre
+      tan: -179.703102 deg   # True anomaly at reference epoch
+      gm: SunGM   # GM of central body
+    # Add station points on the surface of Earth
+  - name: stations1
+    type: Stations
+    config:
+      source: earthStations
+      points: false
+  - name: stations2
+    type: Stations
+    config:
+      source: earthStations
+      axes: false
+  - name: Q0433
+    type: DirVector
+    config:
+      axes: ICRF
+      vector:
+        - -0.658007851370856
+        - -0.736214609360063
+        - -0.15815725243920697
+#! frames
+
+#! bodies
+bodies:
+  # Earth as body with Earth as the center of the body from the frames plugin
+  - name: Earth
+    point: Earth
+    # Add non-spherical gravity field from file, attached to body-fixed axes ITRF
+    gravity:
+      - EarthGrav
+    gm: EarthGrav
+  - name: Sun
+    point: Sun
+  # Define Moon as point mass
+  - name: Moon
+    point: Moon
+  # Define apophis
+  - name: Apophis
+    point: Apophis
+    radius: 185 m
+#! bodies
+
+#! gravity
+gravity:
+  # Earth, Moon and Sun system gravity
+  - name: EMS
+    bodies:
+      - Sun # Sun top tree level
+      - Earth # Earth top tree level, COI switch possible to root (SSB)
+      # Define Moon to be below Earth, so COI switch possible between Earth and Moon
+      - center: Moon
+        parent: Earth
+        barycenter: ''
+#! gravity
+
+#! atmosphere
+atmosphere:
+  - name: EarthAtmos
+    type: nrlmsise00 # Specific model for Earth
+    config:
+      point: Earth
+      axes: ITRF # Atmosphere glued to Earth body-fixed frame
+      file: share/test/solmag.ipf # Use solar activity file
+#! atmosphere
+
+#! dynamics
+dynamics:
+  - name: Simple
+    type: SystemGravity
+    config:
+      model: EMS
+
+  - name: EMS_gravity
+    type: SystemGravity
+    config:
+      model: EMS
+
+  - name: srp
+    type: SimpleSRP
+    config:
+      mass: GeoSat_mass
+      area: GeoSat_srp_area
+      cr: GeoSat_srp_cr
+      occulters:
+        - Earth
+
+  - name: drag
+    type: SimpleDrag
+    config:
+      atmosphere: EarthAtmos
+      mass: GeoSat_mass
+      area: GeoSat_drag_area
+      cd: GeoSat_drag_cd
+
+  - name: EMS
+    type: Combined
+    config:
+      - EMS_gravity
+      # - srp
+      # - drag
+#! dynamics
+
+#! spacecraft
+spacecraft:
+  # Configuration for JUICE spacecraft
+  - name: JUICE
+    mass: 4700 kg
+    # Solar radiation modelling surface properties
+    srp:
+      area: 12 m^2
+      cr: 1.7 # Reflectivity coefficient
+    # Drag modelling surface properties
+    drag:
+      area: 8 m^2
+      cd: 1.5 # Ballistic coefficient
+    thrusters:
+      # Define a "main" thruster block with thrust magnitude and Isp
+      - name: main
+        thrust: 100 N
+        isp: 320 s
+ # Configuration for GeoSat spacecraft
+  - name: GeoSat
+    mass: 2000 kg
+    # Solar radiation modelling surface properties
+    srp:
+      area: 12 m^2
+      cr: cr # Reflectivity coefficient
+    # Drag modelling surface properties
+    drag:
+      area: 8 m^2
+      cd: cd # Ballistic coefficient
+    thrusters:
+      # Define a "main" thruster block with thrust magnitude and Isp
+      - name: main
+        thrust: 100 N
+        isp: 320 s
+  # Simple configuration for SOLO with only mass
+  - name: SOLO
+    mass: 1700 kg
+#! spacecraft
+
+#! spacecraftParticipant
+spacecraftParticipants:
+  - name: SOLO
+    point: Solo_center
+    transponders:
+      - name: TR1
+        delay:
+          X_X:
+            group: 0.0 s
+            phase: 0.0 s
+    antennas:
+      - name: ANT1
+        point: Solo_ipf
+#! spacecraftParticipant
+
+#! stationParticipant
+stationParticipants:
+  source: earthStations
+  solmag: share/test/solmag.ipf
+  stations:
+    - name: New_Norcia
+      troposphere: true
+      ionosphere: true
+#! stationParticipant
+
+#! lightTime
+lightTime:
+  - name: solarSystem
+    bodies:
+      - Sun
+      - Earth
+      - Moon
+    refCenter: SSB
+    refAxes: ICRF
+#! lightTime
+sphericalHarmonics:
+  - name: EarthGrav
+    type: File
+    config:
+      point: Earth
+      degree: 16
+      order: 16
+      axes: ITRF
+      file: share/test//eigen05c_80_sha.tab
