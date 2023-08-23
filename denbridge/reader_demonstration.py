@@ -39,6 +39,8 @@ def main():
     timestamp = chunk.timestamp.strftime('%Y-%m-%d %H:%M:%S')
     fig = plt.figure()
     plt.imshow(pixels, interpolation='none', origin='lower', cmap='jet', vmin=0, vmax=255)
+    # technically, this corresponds to the B-scope display in radar
+    # https://en.wikipedia.org/wiki/Radar_display#B-Scope
     plt.title(timestamp)
     plt.gca().set_xlabel('Bearing info')
     plt.gca().set_ylabel('Range info')

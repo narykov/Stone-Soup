@@ -5,8 +5,7 @@ from ..types.sensordata import ImageFrame
 from ..base import Property
 from datetime import datetime, timedelta
 import numpy as np
-from pathlib import Path
-
+from scipy.interpolate import RegularGridInterpolator, interp2d, griddata
 
 class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
     """ Inherits from FrameReader so, we can potentially use the CFAR and/or CCL feeders (see
@@ -22,6 +21,10 @@ class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
         super().__init__(*args, **kwargs)
         self._count = np.prod(self.datashape)
 
+    def _polar2Im(self, polar_data):
+        """A method that interpolates data in range-bearing cells onto the 2D plane"""
+        pass
+
     @BufferedGenerator.generator_method
     def frames_gen(self):
         with self.path.open('rb') as f:
@@ -31,6 +34,7 @@ class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
                 vector = np.fromfile(f, count=self._count, dtype=self.datatype)
                 if vector.size == self._count:
                     pixels = vector.reshape(self.datashape).T  # equivalent of Denbridge Marine's output
+                    # pixels = self._polar2Im(pixels)
                     frame = ImageFrame(pixels=pixels, timestamp=timestamp)  # turns it into Stone Soup object
                     timestamp += self.time_step
                 else:
