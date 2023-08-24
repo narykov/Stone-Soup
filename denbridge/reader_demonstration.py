@@ -10,6 +10,7 @@ def main():
     instrumental_range_nm = 32  # in nautical miles, 1 NM = 1852 m
     nm = 1852  # metres in nautical mile
     instrumental_range = instrumental_range_nm * nm
+    instrumental_azimuth = 2 * np.pi
 
     # Radar coordinates
     radar_loc = '53.26.555N,3.02.426W'

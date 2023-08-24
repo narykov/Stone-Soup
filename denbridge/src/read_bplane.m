@@ -33,13 +33,13 @@ end
 function [imC] = Polar2Im(imP,W,method)
   %Polar2Im turns a polar image (imP) into a cartesian image (imC) of width W
   %method can be: '*linear', '*cubic', '*spline', or '*nearest'.
-  imP(isnan(imP))=0;
-  w = round(W/2);
-  xy = (1:W-w);
-  [M N P]= size(imP);
-  [x y] = meshgrid(xy,xy);
-  n = round(N/4);
-  rr = linspace(1,w,M);
+  imP(isnan(imP))=0;  % ensure no nans
+  w = round(W/2);  % 2048
+  xy = (1:W-w);  % [1, ..., 2048]
+  [M N P]= size(imP);  % [4096 4096 1]
+  [x y] = meshgrid(xy,xy);  %  mesh for [1,..,2048]
+  n = round(N/4);  % nr of angles in one sector
+  rr = linspace(1,w,M);  % 4096 columns that go from 1 to 2048
   W1 = w:-1:1;
   PM = [2 1 3;1 2 3;2 1 3;1 2 3];
   W2 = w+1:2*w;

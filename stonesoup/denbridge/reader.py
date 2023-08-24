@@ -23,6 +23,17 @@ class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
 
     def _polar2Im(self, polar_data):
         """A method that interpolates data in range-bearing cells onto the 2D plane"""
+        inst_range = 32 * 1.6
+        xs = np.linspace(-inst_range, inst_range, 4096 * 2)
+        ys = xs
+        # create meshgrid with the above
+        # generate range and angles for those ponints
+
+        "So we have a map of values "
+
+        # create meshgrid with ranges and angles
+
+
         pass
 
     @BufferedGenerator.generator_method
