@@ -90,11 +90,12 @@ def main():
 
         if i > 6:
             dets = all_measurements.pop(0)
-            xs, ys = [], []
+            xs, ys, ss = [], [], []
             for det in dets:
                 sv = measurement_model.inverse_function(det)
                 xs.append(sv[0])
                 ys.append(sv[2])
+                ss.append(det)
             plt.scatter(x=xs, y=ys, s=80, facecolors='none', edgecolors='r')
 
         plt.title(timestamp)

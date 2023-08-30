@@ -29,7 +29,7 @@ class ObjectDetector(Detector):
         imgs = []
         for frame in frames:
             img = frame.pixels
-            img_interest = img[0:2048, 0:1000]
+            img_interest = img[:, 0:1000]
             img_interest = cv2.rotate(img_interest, cv2.ROTATE_90_COUNTERCLOCKWISE)
             imgs.append(img_interest[np.newaxis, :, :])
 
