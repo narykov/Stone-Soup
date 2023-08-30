@@ -73,3 +73,35 @@ class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
                     break
 
                 yield frame
+
+
+class BinaryFileReaderFrames(BinaryFileReaderRAW):
+    temporal_smooth: int = Property(doc="The number of frames to smooth/average over")
+
+    @BufferedGenerator.generator_method
+    def frames_gen(self):
+        with self.path.open('rb') as f:
+            timestamp = self.start_time
+            frames = []
+            eof = False
+            while True:
+                if len(frames) > 0:
+                    frames.pop(0)  # dropping the first element for the sliding window
+
+
+
+                while len(frames) < self.temporal_smooth:
+                    # noinspection PyTypeChecker
+                    vector = np.fromfile(f, count=self._count, dtype=self.datatype)
+                    if vector.size < self._count:
+                        eof = True
+                        break
+                    pixels = vector.reshape(self.datashape)  # equivalent of Denbridge Marine's output
+                    frame = ImageFrame(pixels=pixels, timestamp=timestamp)  # turns it into Stone Soup object
+                    frames.append(frame)
+                    timestamp += self.time_step
+
+                if eof is True:
+                    break
+
+                yield frames
