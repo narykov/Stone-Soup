@@ -14,22 +14,26 @@ class ObjectDetector(Detector):
     min_block_size: int = Property(doc="Minimum block size")
     fgbg: cv2.bgsegm.BackgroundSubtractorMOG = Property(doc="Background Subtractor")
     measurement_model: CartesianToBearingRange = Property(doc="Measurement model")
-    @BufferedGenerator.generator_method
-    def detections_gen(self):
-        # noinspection PyTypeChecker
-        yield from self._detections_gen()
+    rng_pixels: int = Property(doc="Maximum number of range pixels to grab")
 
-    def _detections_gen(self):
+    @BufferedGenerator.generator_method
+    def detections_gen(self, **kwargs):
+        # noinspection PyTypeChecker
+        yield from self._detections_gen(**kwargs)
+
+    def _detections_gen(self, **kwargs):
         for frames in self.sensor:
-            detections = self._get_detections_from_frames(frames)
+            detections = self._get_detections_from_frames(frames, **kwargs)
             timestamp = frames[-1].timestamp
             yield timestamp, detections
 
-    def _get_detections_from_frames(self, frames):
+    def _get_detections_from_frames(self, frames,  **kwargs):
+
         imgs = []
         for frame in frames:
             img = frame.pixels
-            img_interest = img[:, 0:1000]
+            max_pix = self.rng_pixels
+            img_interest = img[:, 0:max_pix]
             img_interest = cv2.rotate(img_interest, cv2.ROTATE_90_COUNTERCLOCKWISE)
             imgs.append(img_interest[np.newaxis, :, :])
 
@@ -53,9 +57,10 @@ class ObjectDetector(Detector):
                 detection_y = valid_detect_pnts[-1][1]
                 d_size = contours[_i].shape[0]
 
+                #TODO: sort out this ad hoc solution
                 b_n = 4096
                 theta = np.pi/2 - detection_x * ( 2 * np.pi / b_n)
-                rho = (1000-detection_y) * (1852*32 / b_n)
+                rho = (self.rng_pixels-detection_y) * (1852*32 / b_n)
 
                 detection = Detection(
                     state_vector=StateVector([[theta], [rho]]),

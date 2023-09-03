@@ -21,7 +21,6 @@ class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
     rng_instrumental: float = Property(doc="Max range in radar data")
     rng_cutoff: float = Property(doc="Cutoff range (to extract a subset of data)")
 
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._count = np.prod(self.datashape)
@@ -77,25 +76,48 @@ class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
 
 class BinaryFileReaderFrames(BinaryFileReaderRAW):
     temporal_smooth: int = Property(doc="The number of frames to smooth/average over")
+    n_batches_cutoff: int = Property(doc="The number of batches to read")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.n_batches_cutoff == 0:
+            raise ValueError('Illegitimate value of "n_batches_cutoff": {}'.format(self.n_batches_cutoff))
+
+    @property
+    def sensor_data(self):
+        #TODO: check if this is a correct way to report raw data (I changed [1] to [-1] to read)
+        frame = self.current[-1]
+        pixels = super()._polar2Im(frame.pixels)
+        frame = ImageFrame(pixels=pixels, timestamp=frame.timestamp)
+        return frame
 
     @BufferedGenerator.generator_method
     def frames_gen(self):
+
         with self.path.open('rb') as f:
             timestamp = self.start_time
             frames = []
+            n_batches = 0
             eof = False
+
             while True:
+
+                # if we've performed the requested number of updates, then stop without reading the file till its end
+                if n_batches == self.n_batches_cutoff:
+                    break
+
+                # (in subsequent loops) we drop the first frame in a sliding window to append it with a new frame l8r
                 if len(frames) > 0:
-                    frames.pop(0)  # dropping the first element for the sliding window
-
-
+                    frames.pop(0)  # dropping the first element
 
                 while len(frames) < self.temporal_smooth:
                     # noinspection PyTypeChecker
                     vector = np.fromfile(f, count=self._count, dtype=self.datatype)
-                    if vector.size < self._count:
+
+                    if vector.size != self._count:
                         eof = True
                         break
+
                     pixels = vector.reshape(self.datashape)  # equivalent of Denbridge Marine's output
                     frame = ImageFrame(pixels=pixels, timestamp=timestamp)  # turns it into Stone Soup object
                     frames.append(frame)
@@ -103,5 +125,7 @@ class BinaryFileReaderFrames(BinaryFileReaderRAW):
 
                 if eof is True:
                     break
+
+                n_batches += 1
 
                 yield frames
