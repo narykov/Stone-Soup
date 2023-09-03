@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 from pathlib import Path
-
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
 from matplotlib import use
@@ -24,7 +23,6 @@ from stonesoup.denbridge.utils import plot_tracks, plot_detections
 
 def main():
     # Radar coordinates '53.26.555N,3.02.426W'
-
     # Data description
     path = Path('src/fn2.raw')
     datashape = (4096, 4096)
@@ -76,7 +74,7 @@ def main():
     updater = UnscentedKalmanUpdater()
     hypothesiser = DistanceHypothesiser(predictor, updater, measure=Mahalanobis(), missed_distance=3)
     data_associator = GNNWith2DAssignment(hypothesiser)
-    deleter = UpdateTimeDeleter(time_since_update=timedelta(seconds=20))
+    deleter = UpdateTimeDeleter(time_since_update=timedelta(seconds=10))
     initiator = MultiMeasurementInitiator(GaussianState(
         np.array([[0], [0], [0], [0]]), np.diag([10 ** 2, 1 ** 2, 10 ** 2, 1 ** 2])),
         measurement_model=measurement_model,
@@ -93,28 +91,28 @@ def main():
         updater=updater,
     )
 
-    use('Agg')  # hides the figure
-
+    # use('Agg')  # hides the figures
     tracks = set()
+    fig, ax = plt.subplots()
     for step, (time, current_tracks) in enumerate(tracker, 0):
         pixels = reader.sensor_data.pixels
-        timestamp = time.strftime('%Y-%m-%d %H:%M:%S')
-        fig = plt.figure()
-        plt.imshow(pixels, interpolation='none', origin='lower', cmap='jet',
+        im = plt.imshow(pixels, interpolation='none', origin='lower', cmap='jet',
                    extent=[-rng_cutoff, rng_cutoff, -rng_cutoff, rng_cutoff], vmin=0, vmax=255)
-        plt.colorbar(ax=plt.gca())
+        cbar = plt.colorbar(im, orientation='vertical')
+        # cbar.set_label('Receiver units')
         plot_detections(detector.detections)
         tracks.update(current_tracks)
-        plot_tracks(tracks)
+        plot_tracks(current_tracks)
         print("Step: {} Time: {}".format(step, time))
-        plt.title(timestamp)
-        plt.gca().set_xlim([-rng_cutoff, rng_cutoff])
-        plt.gca().set_ylim([-rng_cutoff, rng_cutoff])
+        plt.title(time.strftime('%Y-%m-%d %H:%M:%S'))
         plt.gca().set_xlabel('Eastings, [m]')
         plt.gca().set_ylabel('Northings, [m]')
+        plt.gca().set_xlim([-rng_cutoff, rng_cutoff])
+        plt.gca().set_ylim([-rng_cutoff, rng_cutoff])
         name = 'image' + str(step).zfill(6)
         fig.savefig('img/{}.png'.format(name), dpi=192)
-        plt.close()
+        plt.pause(0.05)
+        plt.clf()
 
 
     # from stonesoup.plotter import AnimatedPlotterly
