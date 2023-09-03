@@ -24,6 +24,7 @@ def main():
     nm = 1852  # metres in nautical mile
     rng_instrumental = rng_instrumental_nm * nm
     rng_cutoff = 5000
+    n_batches_cutoff = 50
 
     temporal_smooth = 8  # number of historical images are used for smoothing
     reader = BinaryFileReaderFrames(
@@ -35,7 +36,8 @@ def main():
         rng_min=rng_min,
         rng_instrumental=rng_instrumental,
         rng_cutoff=rng_cutoff,
-        temporal_smooth=temporal_smooth
+        temporal_smooth=temporal_smooth,
+        n_batches_cutoff=n_batches_cutoff
     )
     min_block_size = 8  # the minimum size of the detected block
     fgbg = cv2.bgsegm.createBackgroundSubtractorMOG(history=20, nmixtures=4, backgroundRatio=0.8, noiseSigma=9.0)
@@ -44,11 +46,15 @@ def main():
         mapping=(0, 2),
         noise_covar=np.diag([np.deg2rad(1), 10])
     )
+    rng_delta = (rng_instrumental-rng_min)/datashape[0]
+    rng_pixels = np.floor(rng_cutoff/rng_delta).astype(int)
+
     detector = ObjectDetector(
         sensor=reader,
         min_block_size=min_block_size,
         fgbg=fgbg,
-        measurement_model=measurement_model
+        measurement_model=measurement_model,
+        rng_pixels=rng_pixels
     )
 
     timesteps = []
@@ -57,6 +63,17 @@ def main():
         # print(detections)
         timesteps.append(timestamp)
         all_measurements.append(detections)
+
+    from stonesoup.models.transition.linear import (
+        CombinedLinearGaussianTransitionModel, OrnsteinUhlenbeck)
+    transition_model = CombinedLinearGaussianTransitionModel(
+        (OrnsteinUhlenbeck(0.5, 1e-4), OrnsteinUhlenbeck(0.5, 1e-4)))
+
+    from stonesoup.predictor.kalman import KalmanPredictor
+    predictor = KalmanPredictor(transition_model)
+
+    from stonesoup.updater.kalman import KalmanUpdater
+    updater = KalmanUpdater(measurement_model)
 
     # from stonesoup.plotter import AnimatedPlotterly
     # plotter = AnimatedPlotterly(timesteps, tail_length=0.0001)
