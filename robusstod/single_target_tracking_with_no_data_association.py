@@ -24,7 +24,7 @@ from stonesoup.updater.kalman import IteratedKalmanUpdater
 # ROBUSSTOD MODULES
 from stonesoup.robusstod.stonesoup.models.transition import LinearisedDiscretisation
 from stonesoup.robusstod.stonesoup.predictor import ExtendedKalmanPredictor
-from stonesoup.robusstod.stonesoup.smoother import IPLSKalmanSmoother
+from stonesoup.robusstod.stonesoup.smoother import IPLSKalmanSmoother, IPLSKalmanSmootherFull
 from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
 from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
@@ -72,7 +72,20 @@ def main():
     # then converting them into Cartesian domain.
 
     a, e, i, w, omega, nu = (9164000, 0.03, 70, 0, 0, 0)
-    # the values above are from https://github.com/alecksphillips/SatelliteModel/blob/main/Stan-InitialStateTarget.py
+    # Orbital elements, see https://en.wikipedia.org/wiki/Orbital_elements
+    # Two elements define the shape and size of the ellipse:
+    # a = semimajor axis
+    # e = eccentricity
+    # Two elements define the orientation of the orbital plane in which the ellipse is embedded:
+    # i = inclination
+    # omega = longitude of the ascending node
+    # The remaining two elements are as follows:
+    # w = argument of periapsis
+    # nu = true anomaly
+    # Visualisation (png): https://en.wikipedia.org/wiki/Orbital_elements#/media/File:Orbit1.svg
+    # A simple interactive visualisation can be accessed at https://orbitalmechanics.info,
+    # where a is given in the multiples of the Earth's radius, and i, omega, w and nu are defined in degrees.
+    #
     # a, e, i, w, omega, nu (m, _, deg, deg, deg, deg)
     # NB: a, e, I, RAAN, argP, ta (km, _, rad, rad, rad, rad) as in https://godot.io.esa.int/tutorials/T04_Astro/T04scv/
     K = np.array([a, e, np.radians(i), np.radians(w), np.radians(omega), np.radians(nu)])  # now in SI units (m & rad)
@@ -140,7 +153,8 @@ def main():
     # Perform tracking/filtering/smooting
     track_iplf = do_single_target_tracking(prior=prior, predictor=predictor, updater=updater_iplf, measurements=measurements)
     track_iekf = do_single_target_tracking(prior=prior, predictor=predictor, updater=updater_iekf, measurements=measurements)
-    smoother = IPLSKalmanSmoother(transition_model=transition_model)
+    smoother = IPLSKalmanSmootherFull(transition_model=transition_model)
+    # smoother = IPLSKalmanSmoother(transition_model=transition_model)
     track_ipls = smoother.smooth(track_iplf)
 
 
