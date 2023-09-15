@@ -135,14 +135,16 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
                 warnings.warn("IPLF update reached maximum number of iterations.")
                 break
 
-            hypothesis.prediction = Prediction.from_state(
-                state=post_state,
-                state_vector=post_state.state_vector,
-                covar=post_state.covar,
-                timestamp=post_state.timestamp
-            )
+            # hypothesis.prediction = Prediction.from_state(
+            #     state=post_state,
+            #     state_vector=post_state.state_vector,
+            #     covar=post_state.covar,
+            #     timestamp=post_state.timestamp
+            # )
 
-            slr = self._slr_calculations(hypothesis.prediction, measurement_model)
+            "SLR is computed wrt to posterior, not the original prior"
+            # slr = self._slr_calculations(hypothesis.prediction, measurement_model)
+            slr = self._slr_calculations(post_state, measurement_model)
 
             measurement_model_linearized = GeneralLinearGaussian(
                 ndim_state=measurement_model.ndim_state,
@@ -155,7 +157,12 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
                 predicted_state=hypothesis.prediction,
                 measurement_model=measurement_model_linearized)
 
+            hypothesis.measurement.measurement_model = measurement_model_linearized
+
+            "Update is computed wrt the original prior"
             post_state = super().update(hypothesis, **kwargs)
+            post_state.hypothesis.measurement.measurement_model = measurement_model
+
             post_state.covar = (post_state.covar + post_state.covar.T) / 2
             try:
                 np.linalg.cholesky(post_state.covar)
@@ -166,7 +173,7 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
             # increment counter
             iterations += 1
 
-        post_state.hypothesis.prediction = prev_state
+        # post_state.hypothesis.prediction = prev_state
         print("IPLF update took {} iterations and the KLD value of {}.".format(iterations, *self.measure(prev_state, post_state)))
 
         return post_state
