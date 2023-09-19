@@ -264,6 +264,10 @@ class IPLSKalmanSmootherFull(IPLSKalmanSmoother):
                 track_forward.append(update)
                 prev_state = update
 
+            from ..utils import plot_tracks
+
+            plot_tracks()
+            print()
             track_smoothed = KalmanSmoother.smooth(self, track_forward)
 
 
