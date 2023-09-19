@@ -153,8 +153,8 @@ def main():
     # Perform tracking/filtering/smooting
     track_iplf = do_single_target_tracking(prior=prior, predictor=predictor, updater=updater_iplf, measurements=measurements)
     track_iekf = do_single_target_tracking(prior=prior, predictor=predictor, updater=updater_iekf, measurements=measurements)
-    # smoother = IPLSKalmanSmootherFull(transition_model=transition_model)
-    smoother = IPLSKalmanSmoother(transition_model=transition_model)
+    smoother = IPLSKalmanSmootherFull(transition_model=transition_model)
+    # smoother = IPLSKalmanSmoother(transition_model=transition_model)
     track_ipls = smoother.smooth(track_iplf)
 
 
