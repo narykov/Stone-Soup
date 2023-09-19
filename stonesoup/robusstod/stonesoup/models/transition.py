@@ -102,7 +102,7 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         return CovarianceMatrix(Q)
 
 
-class GeneralLinearGaussian(GaussianTransitionModel, TimeVariantModel):
+class LinearGaussianTransitionModel(GaussianTransitionModel, TimeVariantModel):
     transition_matrix: Matrix = Property(doc="Measurement matrix")
     bias_value: StateVector = Property(doc="Bias value")
     noise_covar: CovarianceMatrix = Property(doc="Noise covariance")
@@ -116,19 +116,31 @@ class GeneralLinearGaussian(GaussianTransitionModel, TimeVariantModel):
         if not isinstance(self.noise_covar, CovarianceMatrix):
             self.noise_covar = CovarianceMatrix(self.noise_covar)
 
+    # @property
+    # def ndim_meas(self):
+    #     """ndim_meas getter method
+    #
+    #     Returns
+    #     -------
+    #     :class:`int`
+    #         The number of measurement dimensions
+    #     """
+    #
+    #     return len(self.mapping)
+
     @property
-    def ndim_meas(self):
-        """ndim_meas getter method
+    def ndim_state(self):
+        """ndim_state getter method
 
         Returns
         -------
-        :class:`int`
-            The number of measurement dimensions
+        : :class:`int`
+            The number of model state dimensions.
         """
 
-        return len(self.mapping)
+        return self.matrix().shape[0]
 
-    def matrix(self, **kwargs): return self.meas_matrix
+    def matrix(self, **kwargs): return self.transition_matrix
 
     def bias(self, **kwargs): return self.bias_value
 

@@ -79,6 +79,11 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
         mean_pos = prediction.state_vector
         cov_pos = prediction.covar
 
+        if not np.all(np.linalg.eigvals(prediction.covar) > 0):
+            # np.linalg.cholesky(prediction.covar)
+            # You can also check if all the eigenvalues of matrix are positive, if so the matrix is positive definite:
+            print()
+
         measurement_prediction = self.predict_measurement(
             predicted_state=prediction,
             measurement_model=measurement_model, **kwargs)  # using sigma points in UKF
@@ -142,7 +147,7 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
             #     timestamp=post_state.timestamp
             # )
 
-            "SLR is computed wrt to posterior, not the original prior"
+            # SLR is wrt to tne approximated posterior in post_state, not the original prior in hypothesis.prediction
             # slr = self._slr_calculations(hypothesis.prediction, measurement_model)
             slr = self._slr_calculations(post_state, measurement_model)
 
@@ -159,8 +164,8 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
 
             hypothesis.measurement.measurement_model = measurement_model_linearized
 
-            "Update is computed wrt the original prior"
-            post_state = super().update(hypothesis, **kwargs)
+            # update is computed using the original prior in hypothesis.prediction
+            post_state = super().update(hypothesis, **kwargs)  # classic Kalman update
             post_state.hypothesis.measurement.measurement_model = measurement_model
 
             post_state.covar = (post_state.covar + post_state.covar.T) / 2

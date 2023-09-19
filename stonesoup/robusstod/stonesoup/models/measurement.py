@@ -13,7 +13,7 @@ from ....functions import cart2pol, pol2cart,  cart2sphere, sphere2cart, cart2an
 from collections.abc import Callable
 from typing import Sequence, Tuple, Union
 from ....types.angle import Bearing, Elevation
-from ...physics.godot import rng
+# from ...physics.godot import rng
 
 
 class GeneralLinearGaussian(MeasurementModel, LinearModel, GaussianModel):
