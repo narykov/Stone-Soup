@@ -12,16 +12,18 @@ def plot_detections(detections):
         ys.append(detect_state[2])
     plt.scatter(x=xs, y=ys, s=80, facecolors='none', edgecolors='r')
 
-def plot_tracks(tracks, ax=None):
+def plot_tracks(tracks, ax=None, color=None):
     if ax is None:
         ax = plt.gca()
+    if color is None:
+        color = 'g'
 
     for track in tracks:
         x = [state.state_vector[0] for state in track.states]
         y = [state.state_vector[2] for state in track.states]
-        plt.plot(x, y, 'w-')
+        plt.plot(x, y, linestyle='-', color=color)
         plot_ellipse(track.mean[[0, 2], :], track.covar[[0, 2], :][:, [0, 2]], facecolor='none',
-                         linestyle='-', edgecolor='w', ax=ax, linewidth=1)
+                         linestyle='-', edgecolor=color, ax=ax, linewidth=1)
 
 def plot_ellipse(mu, cov, nstd=3, ax=None, **kwargs):
     def eigsorted(cov):
