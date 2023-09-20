@@ -265,11 +265,32 @@ class IPLSKalmanSmootherFull(IPLSKalmanSmoother):
                 prev_state = update
 
             from ..utils import plot_tracks
+            from matplotlib import pyplot as plt
+            # for step, (time, current_tracks) in enumerate(tracker, 0):
+            #     pixels = reader.sensor_data.pixels
+            #     im = plt.imshow(pixels, interpolation='none', origin='lower', cmap='jet',
+            #                     extent=[-rng_cutoff, rng_cutoff, -rng_cutoff, rng_cutoff], vmin=0, vmax=255)
+            #     cbar = plt.colorbar(im, orientation='vertical')
+            #     # cbar.set_label('Receiver units')
+            #     plot_detections(detector.detections)
+            #     tracks.update(current_tracks)
+            plot_tracks([track], color='r')
+            plot_tracks([track_smoothed], color='g')
+                # print("Step: {} Time: {}".format(step, time))
+                # plt.title(time.strftime('%Y-%m-%d %H:%M:%S'))
+                # plt.gca().set_xlabel('Eastings, [m]')
+                # plt.gca().set_ylabel('Northings, [m]')
+                # plt.gca().set_xlim([-rng_cutoff, rng_cutoff])
+                # plt.gca().set_ylim([-rng_cutoff, rng_cutoff])
+                # name = 'image' + str(step).zfill(6)
+                # fig.savefig('img/{}.png'.format(name), dpi=192)
+                # plt.pause(0.05)
+                # plt.clf()
 
-            plot_tracks()
-            print()
             track_smoothed = KalmanSmoother.smooth(self, track_forward)
-
+            plot_tracks([track_forward], color='m')
+            plot_tracks([track_smoothed], color='y')
+            print()
 
 
             # track_smoothed = ExtendedKalmanSmoother(self.transition_model).smooth(track_forward)
