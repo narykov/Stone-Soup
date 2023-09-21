@@ -94,7 +94,15 @@ def main():
     # use('Agg')  # hides the figures
     tracks = set()
     fig, ax = plt.subplots()
+    tracks_db = {}
+    counter = 0
     for step, (time, current_tracks) in enumerate(tracker, 0):
+
+        for track in current_tracks:
+            if track.id not in tracks_db.keys():
+                tracks_db[track.id] = counter
+                counter += 1
+
         pixels = reader.sensor_data.pixels
         im = plt.imshow(pixels, interpolation='none', origin='lower', cmap='jet',
                    extent=[-rng_cutoff, rng_cutoff, -rng_cutoff, rng_cutoff], vmin=0, vmax=255)
