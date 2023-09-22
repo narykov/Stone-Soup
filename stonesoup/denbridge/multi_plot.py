@@ -4,19 +4,30 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import ConnectionPatch
+import matplotlib.patheffects as pe
+
 
 from stonesoup.models.transition.linear import CombinedLinearGaussianTransitionModel, \
     ConstantVelocity
 from stonesoup.simulator.simple import MultiTargetGroundTruthSimulator
 from stonesoup.types.state import GaussianState
 
-# High level settings
-# -------------------
-num_subplots = 20                   # Number of subplots to show
-grid_size = (5, 7)                  # Size of the plotting grid (rows, cols)
-main_plot_size = (3, 5)             # Size of the center plot (rows, cols)
-V_BOUNDS = np.array([[-20, 20],     # (x_min, x_max)
-                     [-10, 10]])    # (y_min, y_max)
+from .utils import plot_detections
+
+
+# # High level settings
+# # -------------------
+# num_subplots = 20                   # Number of subplots to show
+# grid_size = (5, 7)                  # Size of the plotting grid (rows, cols)
+# main_plot_size = (3, 5)             # Size of the center plot (rows, cols)
+# V_BOUNDS = np.array([[-20, 20],     # (x_min, x_max)
+#                      [-10, 10]])    # (y_min, y_max)
+num_subplots = 24                   # Number of subplots to show
+grid_size = (7, 7)                  # Size of the plotting grid (rows, cols)
+main_plot_size = (5, 5)             # Size of the center plot (rows, cols)
+rng_cutoff = 5000  # how far we wish to see with the radar
+V_BOUNDS = np.array([[-rng_cutoff, rng_cutoff],   # (x_min, x_max)
+                     [-rng_cutoff, rng_cutoff]])  # (y_min, y_max)
 
 
 def reset_axis(ax, main=False):
@@ -85,17 +96,30 @@ def get_subplot_coords(idx):
     The returned index for the last row and column is -1. Hence, the bottom left subplot has coords
     (-1, 0), the top right subplot (0, -1), and the bottom right subplot (-1, -1).
     """
+    # if idx < 7:  # Top row (0-6)
+    #     i = 0
+    #     j = idx if idx < 6 else -1  # Return -1 for the last column
+    # elif idx < 10:  # Right column (7-9)
+    #     i = idx - 6
+    #     j = -1
+    # elif idx < 17:  # Bottom row (10-16)
+    #     i = -1
+    #     j = 16 - idx if idx > 10 else -1
+    # else:  # Left column (17-19)
+    #     i = 20 - idx
+    #     j = 0
+    # return i, j
     if idx < 7:  # Top row (0-6)
         i = 0
         j = idx if idx < 6 else -1  # Return -1 for the last column
-    elif idx < 10:  # Right column (7-9)
+    elif idx < 12:  # Right column (7-9)
         i = idx - 6
         j = -1
-    elif idx < 17:  # Bottom row (10-16)
+    elif idx < 19:  # Bottom row (10-16)
         i = -1
-        j = 16 - idx if idx > 10 else -1
+        j = 18 - idx if idx > 12 else -1
     else:  # Left column (17-19)
-        i = 20 - idx
+        i = 24 - idx
         j = 0
     return i, j
 
@@ -105,14 +129,30 @@ def plot_track(track, ax, zoom=False, margin=0.5):
     leaving a margin of size `margin` around the state"""
     data = np.array([state.state_vector.squeeze() for state in track]).T
     linestyle = '-' if len(track) > 1 else '.'  # Use a line for tracks with more than one state
-    ax.plot(data[0, :], data[2, :], f'r{linestyle}', markersize=1)
+    ax.plot(data[0, :], data[2, :], f'r{linestyle}', color='xkcd:white', markersize=1,
+            path_effects=[pe.Stroke(linewidth=4, foreground='k'), pe.Normal()])
     if zoom:
         ax.set_xlim(data[0, -1] - margin, data[0, -1] + margin)
         ax.set_ylim(data[2, -1] - margin, data[2, -1] + margin)
 
 
-def plot_tracks(tracks, plot_data, margin=0.5):
+def plot_tracks(tracks, plot_data, margin=0.5*500, **kwargs):
     """Plot a list of tracks on the main plot and subplots."""
+
+    ax = plot_data['main']['ax']
+    n_tracks = len(tracks)
+    props = dict(boxstyle='square', facecolor='white', alpha=0.9)
+    # place a text box in upper left in axes coords
+    plt.sca(ax)
+    plt.imshow(kwargs['pixels'], interpolation='none', origin='lower', cmap='jet',
+                    extent=[-rng_cutoff, rng_cutoff, -rng_cutoff, rng_cutoff], vmin=0, vmax=255)
+    # cbar = plt.colorbar(im, orientation='vertical')
+    step = kwargs['step']
+    timestamp = kwargs['timestamp']
+    textstr = f'{step:03d} | {timestamp.time()} | Subplot capacity: {num_subplots:02d} | Alive tracks: {n_tracks:02d}'
+    ax.text(0.05, 0.05, textstr, transform=ax.transAxes, fontsize=10, verticalalignment='top', bbox=props)
+    # ax.text(0.05, 0.05, str(kwargs['timestamp']), transform=ax.transAxes, fontsize=10, verticalalignment='top', bbox=props)
+
     for track in tracks:
         # Plot on main plot
         ax = plot_data['main']['ax']
@@ -125,11 +165,20 @@ def plot_tracks(tracks, plot_data, margin=0.5):
             continue
         ax = plot_data['sub'][subplot_idx]['ax']
         reset_axis(ax)
+        plt.sca(ax)
+        plt.imshow(kwargs['pixels'], interpolation='none', origin='lower', cmap='jet',
+                   extent=[-rng_cutoff, rng_cutoff, -rng_cutoff, rng_cutoff], vmin=0, vmax=255)
+        plot_detections(kwargs['detector'].detections)
         plot_track(track, ax, zoom=True, margin=margin)
+        props = dict(boxstyle='square', facecolor='white', alpha=0.9)
+        order_appear = kwargs['tracks_id_db'][track.id]
+        textstr = f'{order_appear}'
+        # place a text box in upper left in axes coords
+        ax.text(0.05, 0.95, textstr, transform=ax.transAxes, fontsize=10, verticalalignment='top', bbox=props)
         draw_connection(plot_data, track, subplot_idx)
 
 
-def draw_connection(plot_data, track, sub_idx, color='black', linewidth=0.1, linestyle='--'):
+def draw_connection(plot_data, track, sub_idx, color='white', linewidth=0.5, linestyle='--'):
     """Draw a connection line between the main plot and the subplot for a given track."""
     ax1 = plot_data['main']['ax']
     ax2 = plot_data['sub'][sub_idx]['ax']
@@ -161,7 +210,7 @@ def draw_connection(plot_data, track, sub_idx, color='black', linewidth=0.1, lin
 
 def setup_plot(grid_size, main_plot_size, num_subplots):
     """Set up the plot and return the figure and plot_data dictionary."""
-    fig = plt.figure(figsize=(17, 12))
+    fig = plt.figure(figsize=(8, 8))
 
     # Initiate plotting grid with 5 rows and 7 columns
     # The center plot will span 3 rows and 5 columns, the rest will be subplots of size 1x1
@@ -172,6 +221,7 @@ def setup_plot(grid_size, main_plot_size, num_subplots):
     margin_rows = (grid_size[0] - main_plot_size[0]) // 2
     margin_cols = (grid_size[1] - main_plot_size[1]) // 2
     ax = fig.add_subplot(gs[margin_rows:-margin_rows, margin_rows:-margin_cols])
+    ax.set_facecolor('xkcd:black')
     reset_axis(ax, main=True)
 
     # This dictionary will hold all the data needed for plotting. For each plot, we maintain a
@@ -201,6 +251,7 @@ def setup_plot(grid_size, main_plot_size, num_subplots):
         i, j = get_subplot_coords(idx)
         # Create the axis object and add it to the plot_data dictionary
         ax = fig.add_subplot(gs[i, j])
+        ax.set_facecolor('xkcd:black')
         reset_axis(ax)
         plot_data['sub'].append({
             'ax': ax,
@@ -258,7 +309,7 @@ def main():
         last_tracks = copy.copy(gnd_paths)
 
         # Update plot
-        plt.pause(0.1)
+        # plt.pause(0.1)
 
 
 if __name__ == '__main__':

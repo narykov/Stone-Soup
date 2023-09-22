@@ -10,7 +10,7 @@ def plot_detections(detections):
         detect_state = detection.measurement_model.inverse_function(detection)
         xs.append(detect_state[0])
         ys.append(detect_state[2])
-    plt.scatter(x=xs, y=ys, s=80, facecolors='none', edgecolors='r')
+    plt.scatter(x=xs, y=ys, s=80, facecolors='none', edgecolors='w')
 
 def plot_tracks(tracks, ax=None):
     if ax is None:
