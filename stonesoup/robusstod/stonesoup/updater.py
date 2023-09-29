@@ -5,53 +5,13 @@ from functools import lru_cache
 from ...base import Property
 from ...functions import gauss2sigma, unscented_transform
 from ...types.prediction import Prediction, MeasurementPrediction
-from ...updater.kalman import UnscentedKalmanUpdater as UnscentedKalmanUpdaterOriginal
+from ...updater.kalman import UnscentedKalmanUpdater
 from ...measures import Measure
 
 # ROBUSSTOD CLASSES
 from .models.measurement import GeneralLinearGaussian
 from .measures import GaussianKullbackLeiblerDivergence
-
-
-class UnscentedKalmanUpdater(UnscentedKalmanUpdaterOriginal):
-
-    @lru_cache()
-    def predict_measurement(self, predicted_state, measurement_model=None, **kwargs):
-        """Unscented Kalman Filter measurement prediction step. Uses the
-        unscented transform to estimate a Gauss-distributed predicted
-        measurement.
-
-        Parameters
-        ----------
-        predicted_state : :class:`~.GaussianStatePrediction`
-            A predicted state
-        measurement_model : :class:`~.MeasurementModel`, optional
-            The measurement model used to generate the measurement prediction.
-            This should be used in cases where the measurement model is
-            dependent on the received measurement (the default is `None`, in
-            which case the updater will use the measurement model specified on
-            initialisation)
-
-        Returns
-        -------
-        : :class:`~.GaussianMeasurementPrediction`
-            The measurement prediction
-
-        """
-
-        measurement_model = self._check_measurement_model(measurement_model)
-
-        sigma_points, mean_weights, covar_weights = \
-            gauss2sigma(predicted_state,
-                        self.alpha, self.beta, self.kappa)
-
-        meas_pred_mean, meas_pred_covar, cross_covar, _, _, _ = \
-            unscented_transform(sigma_points, mean_weights, covar_weights,
-                                measurement_model.function,
-                                covar_noise=measurement_model.covar())
-
-        return MeasurementPrediction.from_state(
-            predicted_state, meas_pred_mean, meas_pred_covar, cross_covar=cross_covar)
+from .functions import slr_definition
 
 
 class IPLFKalmanUpdater(UnscentedKalmanUpdater):
@@ -70,33 +30,6 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
         default=5,
         doc="Number of iterations before while loop is exited and a non-convergence warning is "
             "returned")
-
-    def _slr_calculations(self, prediction, measurement_model, **kwargs):
-        """
-        Notation follows https://github.com/Agarciafernandez/IPLF/blob/main/IPLF_maneuvering.m
-        """
-
-        mean_pos = prediction.state_vector
-        cov_pos = prediction.covar
-
-        if not np.all(np.linalg.eigvals(prediction.covar) > 0):
-            # np.linalg.cholesky(prediction.covar)
-            # You can also check if all the eigenvalues of matrix are positive, if so the matrix is positive definite:
-            print()
-
-        measurement_prediction = self.predict_measurement(
-            predicted_state=prediction,
-            measurement_model=measurement_model, **kwargs)  # using sigma points in UKF
-        z_pred = measurement_prediction.state_vector
-        var_pred = measurement_prediction.covar  # = Phi
-        var_xz = measurement_prediction.cross_covar  # = Psi
-
-        # Statistical linear regression parameters
-        A_l = var_xz.T @ np.linalg.inv(cov_pos)
-        b_l = z_pred - A_l @ mean_pos
-        Omega_l = var_pred - A_l @ cov_pos @ A_l.T
-
-        return {'A_l': A_l, 'b_l': b_l, 'Omega_l': Omega_l}
 
     def update(self, hypothesis, **kwargs):
         r"""The IPLF update method.
@@ -140,28 +73,24 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
                 warnings.warn("IPLF update reached maximum number of iterations.")
                 break
 
-            # hypothesis.prediction = Prediction.from_state(
-            #     state=post_state,
-            #     state_vector=post_state.state_vector,
-            #     covar=post_state.covar,
-            #     timestamp=post_state.timestamp
-            # )
+            # SLR is wrt to tne approximated posterior in post_state, not the original prior in prev_state
+            measurement_prediction = UnscentedKalmanUpdater().predict_measurement(
+                predicted_state=post_state,
+                measurement_model=measurement_model
+            )
+            slr_measurement = slr_definition(post_state, measurement_prediction)
 
-            # SLR is wrt to tne approximated posterior in post_state, not the original prior in hypothesis.prediction
-            # slr = self._slr_calculations(hypothesis.prediction, measurement_model)
-            slr = self._slr_calculations(post_state, measurement_model)
-
+            r_cov_matrix = measurement_model.noise_covar
             measurement_model_linearized = GeneralLinearGaussian(
                 ndim_state=measurement_model.ndim_state,
                 mapping=measurement_model.mapping,
-                meas_matrix=slr['A_l'],
-                bias_value=slr['b_l'],
-                noise_covar=measurement_model.noise_covar + slr['Omega_l'])
+                meas_matrix=slr_measurement['matrix'],
+                bias_value=slr_measurement['vector'],
+                noise_covar=r_cov_matrix + slr_measurement['cov_matrix'])
 
             hypothesis.measurement_prediction = super().predict_measurement(
-                predicted_state=hypothesis.prediction,
+                predicted_state=prev_state,
                 measurement_model=measurement_model_linearized)
-
             hypothesis.measurement.measurement_model = measurement_model_linearized
 
             # update is computed using the original prior in hypothesis.prediction
@@ -178,7 +107,6 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
             # increment counter
             iterations += 1
 
-        # post_state.hypothesis.prediction = prev_state
         print("IPLF update took {} iterations and the KLD value of {}.".format(iterations, *self.measure(prev_state, post_state)))
 
         return post_state
