@@ -7,11 +7,13 @@ from ...types.hypothesis import SingleHypothesis
 from ...types.track import Track
 from ...updater.kalman import KalmanUpdater, UnscentedKalmanUpdater
 from ...predictor.kalman import UnscentedKalmanPredictor, KalmanPredictor
+from ...predictor.kalman import KalmanPredictor as KalmanPredictor1
+
 
 from .predictor import ExtendedKalmanPredictor
 from .updater import IPLFKalmanUpdater
 from .models.measurement import GeneralLinearGaussian
-from .models.transition import LinearGaussianTransitionModel
+from .models.transition import LinearGaussianTransitionModel, LinearTransitionModel
 from .predictor import AugmentedUnscentedKalmanPredictor
 
 from .functions import slr_definition
@@ -162,54 +164,97 @@ class IPLSKalmanSmootherFull(IPLSKalmanSmoother):
 
         transition_model = self.transition_model
         measurement_model = track[-1].hypothesis.measurement.measurement_model
+        thetas = []
 
-        # First, we perform initialisation by performing sigma-point smoothing
-        # below is the UKF smoother; using super().smooth(track) doesn't reach the UKF smoother
-        track_smoothed = UnscentedKalmanSmoother.smooth(self, track)
+        for i in range(self.n_iterations):
+            print(f'Iteration {i+1} out of {self.n_iterations}')
+            theta = []
+            """ Compute SLR parameters. """
+            if i == 0:
+                # First, we perform initialisation by performing sigma-point smoothing
+                # below is the UKF smoother; using super().smooth(track) doesn't reach the UKF smoother
+                smoothed_track = UnscentedKalmanSmoother.smooth(self, track)
+                smoothed_tracks = [smoothed_track]
+                continue
 
-        for n in range(self.n_iterations):
-            print(f'Iteration {n+1} out of {self.n_iterations}')
+            ndim_meas = measurement_model.ndim_meas
+            ndim_state = measurement_model.ndim_state
 
-            track_forward = Track(track[0])  # based entirely on the linear approximations
+            depth = len(track)-1  # beacuse no measurement on the first time step
+            f_slr = np.empty((depth, ndim_state, ndim_state))
+            a_slr = np.empty((depth, ndim_state, 1))
+            lambda_slr = np.empty((depth, ndim_state, ndim_state))
+            h_slr = np.empty((depth, ndim_meas, ndim_state))
+            b_slr = np.empty((depth, ndim_meas, 1))
+            omega_slr = np.empty((depth, ndim_meas, ndim_meas))
 
-            previous_update = track_smoothed[0]  #
+            k = 0
+            for current_update in smoothed_tracks[-1]:
+                if current_update.timestamp == smoothed_tracks[-1][0].timestamp:
+                    previous_update = current_update
+                    continue
 
-            for current_update in track_smoothed[1:]:
-
-                # Necessary timings for state prediction
-                timestamp_current = current_update.timestamp
-                timestamp_previous = previous_update.timestamp
-                time_interval = timestamp_current - timestamp_previous
-
-                "Linearising the state prediction and perform linear prediction"
                 # Do the linearisation and state prediction to the current step
                 predicted_state = AugmentedUnscentedKalmanPredictor(transition_model=transition_model).predict(
-                    previous_update, timestamp=timestamp_current
+                    previous_update, timestamp=current_update.timestamp
                 )
                 slr_transition = slr_definition(previous_update, predicted_state)
-                q_cov_matrix = transition_model.covar(time_interval=time_interval, prior=previous_update)
-                transition_model_linearised = LinearGaussianTransitionModel(
-                    transition_matrix=slr_transition['matrix'],
-                    bias_value=slr_transition['vector'],
-                    noise_covar=q_cov_matrix + slr_transition['cov_matrix']
-                )
-                prediction_linear = KalmanPredictor(transition_model_linearised).predict(
-                    track_forward[-1], timestamp=timestamp_current
-                )
-                # prediction_linear.transition_model = self.transition_model
+                f_slr[k], a_slr[k], lambda_slr[k] = list(slr_transition.values())
+                # slr_transition_dict = dict(zip(['F', 'a', 'Lambda'], [*slr_transition.values()]))
 
-                "Linearising the measurement prediction and perform linear measurement update"
                 predicted_measurement = UnscentedKalmanUpdater().predict_measurement(
                     predicted_state=current_update, measurement_model=measurement_model
                 )
                 slr_measurement = slr_definition(current_update, predicted_measurement)
+                h_slr[k], b_slr[k], omega_slr[k] = list(slr_measurement.values())
+                # slr_measurement_dict = dict(zip(['H', 'b', 'Omega'], [*slr_measurement.values()]))
+
+                # slr_parameters = {**slr_transition_dict, **slr_measurement_dict}
+                k += 1
+                previous_update = current_update
+
+            # theta.append(slr_parameters)
+            theta = {'F': f_slr, 'a': a_slr, 'Lambda': lambda_slr, 'H': h_slr, 'b': b_slr, 'Omega': omega_slr}
+            thetas.append(theta)
+            """ Perform forward-backward smoothing using the SLR parameters. """
+
+            track_forward = Track(track[0])  # based entirely on the linear approximations
+            k = 0
+            for current_update in smoothed_tracks[-1]:
+                if current_update.timestamp == smoothed_tracks[-1][0].timestamp:
+                    previous_update = current_update
+                    continue
+                """
+                TIME UPDATE
+                """
+                "Linearising the state prediction and perform linear prediction"
+
+                # Necessary timings for state prediction
+                timestamp_current = current_update.timestamp
+                timestamp_previous = previous_update.timestamp
+                predict_over_interval = timestamp_current - timestamp_previous
+                q_cov_matrix = transition_model.covar(time_interval=predict_over_interval, prior=track_forward[-1])
+                transition_model_linearised = LinearTransitionModel(
+                    transition_matrix=theta['F'][k],
+                    bias_value=theta['a'][k],
+                    noise_covar=q_cov_matrix + theta['Lambda'][k]
+                )
+                predictor = KalmanPredictor1(transition_model_linearised)
+                prediction_linear = predictor.predict(
+                    track_forward[-1], timestamp=timestamp_current
+                )
+                # prediction_linear.transition_model = self.transition_model
+                """
+                DATA UPDATE
+                """
+                "Linearising the measurement prediction and perform linear measurement update"
                 r_cov_matrix = measurement_model.noise_covar
                 measurement_model_linearized = GeneralLinearGaussian(
                     ndim_state=measurement_model.ndim_state,
                     mapping=measurement_model.mapping,
-                    meas_matrix=slr_measurement['matrix'],
-                    bias_value=slr_measurement['vector'],
-                    noise_covar=r_cov_matrix + slr_measurement['cov_matrix'])
+                    meas_matrix=theta['H'][k],
+                    bias_value=theta['b'][k],
+                    noise_covar=r_cov_matrix + theta['Omega'][k])
 
                 # Get the actual measurement plus its prediction for the above model using the predicted pdf
                 measurement = current_update.hypothesis.measurement
@@ -226,19 +271,24 @@ class IPLSKalmanSmootherFull(IPLSKalmanSmoother):
                 update_linear = KalmanUpdater().update(hypothesis)
                 update_linear.hypothesis.measurement.measurement_model = measurement_model  # restores the model
                 track_forward.append(update_linear)
-                previous_update = current_update
 
 
-            from ..utils import plot_tracks
-            plot_tracks([track], color='r')
-            plot_tracks([track_smoothed], color='g')
-            plot_tracks([track_forward], color='m')
+
+
+            from ..utils import plot_tracks, plot_ground_truth, plot_detections
+            from matplotlib import pyplot as plt
+            plot_ground_truth([track[1].hypothesis.measurement.groundtruth_path])
+            plot_detections([state.hypothesis.measurement for state in track[1:]])
+            plot_tracks([track], color='r', label='IPLF')
+            plot_tracks([smoothed_track], color='g', label='smoothed UKF')
+            plot_tracks([track_forward], color='m', label='IPLS (fwd only)')
 
             transition_model_dummy = CombinedLinearGaussianTransitionModel(
                 [ConstantVelocity(0), ConstantVelocity(0), ConstantVelocity(0)])
             smoother_here = KalmanSmoother(transition_model=transition_model_dummy)
             track_smoothed = smoother_here.smooth(track_forward)
-            plot_tracks([track_smoothed], color='y')
+            plot_tracks([track_smoothed], color='y', label='IPLS')
+            plt.legend()
             print()
             # track_smoothed = KalmanSmoother.smooth(self, track_forward)
             # for upd in track_smoothed:
