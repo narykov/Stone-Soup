@@ -78,15 +78,15 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
                 predicted_state=post_state,
                 measurement_model=measurement_model
             )
-            slr_measurement = slr_definition(post_state, measurement_prediction)
+            h_matrix, b_vector, omega_cov_matrix = slr_definition(post_state, measurement_prediction)
 
             r_cov_matrix = measurement_model.noise_covar
             measurement_model_linearized = GeneralLinearGaussian(
                 ndim_state=measurement_model.ndim_state,
                 mapping=measurement_model.mapping,
-                meas_matrix=slr_measurement['matrix'],
-                bias_value=slr_measurement['vector'],
-                noise_covar=r_cov_matrix + slr_measurement['cov_matrix'])
+                meas_matrix=h_matrix,
+                bias_value=b_vector,
+                noise_covar=r_cov_matrix + omega_cov_matrix)
 
             hypothesis.measurement_prediction = super().predict_measurement(
                 predicted_state=prev_state,
