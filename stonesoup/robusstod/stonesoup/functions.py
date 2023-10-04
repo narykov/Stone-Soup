@@ -26,4 +26,4 @@ def slr_definition(state_pdf, prediction):
     Omega_plus = phi - H_plus @ p_matrix @ H_plus.T
 
     # The output is the function's SLR with respect to the state_pdf
-    return {'matrix': H_plus, 'vector': b_plus, 'cov_matrix': Omega_plus}
+    return H_plus, b_plus, Omega_plus

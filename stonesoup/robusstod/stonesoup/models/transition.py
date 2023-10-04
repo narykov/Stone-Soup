@@ -5,6 +5,7 @@ from collections.abc import Callable
 
 from ....types.array import StateVector
 from ....models.transition.nonlinear import GaussianTransitionModel
+from ....models.transition.linear import LinearGaussianTransitionModel
 from ....models.base import TimeVariantModel
 from ....base import Property
 from ....types.array import CovarianceMatrix
@@ -102,7 +103,7 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         return CovarianceMatrix(Q)
 
 
-class LinearGaussianTransitionModel(GaussianTransitionModel, TimeVariantModel):
+class LinearTransitionModel(LinearGaussianTransitionModel, TimeVariantModel):
     transition_matrix: Matrix = Property(doc="Measurement matrix")
     bias_value: StateVector = Property(doc="Bias value")
     noise_covar: CovarianceMatrix = Property(doc="Noise covariance")
@@ -110,7 +111,7 @@ class LinearGaussianTransitionModel(GaussianTransitionModel, TimeVariantModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if not isinstance(self.transition_matrix, Matrix):
-            self.meas_matrix = Matrix(self.transition_matrix)
+            self.transition_matrix = Matrix(self.transition_matrix)
         if not isinstance(self.bias_value, StateVector):
             self.bias_value = StateVector(self.bias_value)
         if not isinstance(self.noise_covar, CovarianceMatrix):
