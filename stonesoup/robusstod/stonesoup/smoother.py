@@ -73,6 +73,8 @@ class IPLSKalmanSmoother(UnscentedKalmanSmoother):
                 smoothed_track = UnscentedKalmanSmoother.smooth(self, track)
                 smoothed_track_uks = smoothed_track
                 smoothed_tracks.append(smoothed_track)
+                # import numpy as np
+                # np.linalg.cholesky(smoothed_track[0].covar)
                 continue
 
             track_forward = Track(track[0])  # starting the new forward track to be
@@ -155,7 +157,7 @@ class IPLSKalmanSmoother(UnscentedKalmanSmoother):
             # # measurement predictions
             # mp = [state.hypothesis.measurement for state in track_forward[1:]]
             # plot_linear_detections(mp, color='y')
-            # plot_tracks([smoothed_track], color='y', label='IPLS')
+            # # plot_tracks([smoothed_track], color='y', label='IPLS')
             # plt.legend()
             # print()
 

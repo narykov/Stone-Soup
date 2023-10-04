@@ -63,7 +63,7 @@ def main():
     start_time = datetime(2000, 1, 1)
     time_parameters = {
         'n_time_steps': 10,
-        'time_interval': timedelta(seconds=40)
+        'time_interval': timedelta(seconds=10)
     }
     # TODO: consider arbitrary time intervals to demonstrate the flexibility of the approach
     timesteps = [start_time + k * time_parameters['time_interval'] for k in range(time_parameters['n_time_steps'])]
@@ -95,7 +95,7 @@ def main():
     GM = G * M_earth  # https://en.wikipedia.org/wiki/Standard_gravitational_parameter (m^3 s^−2)
     initial_state_vector = KeplerianToCartesian(K, GM, ndim_state, mapping_location, mapping_velocity)  # into Cartesian
     initial_state = GroundTruthState(state_vector=initial_state_vector, timestamp=start_time)
-    initial_covariance = CovarianceMatrix(np.diag([40000 ** 2, 100 ** 2, 40000 ** 2, 100 ** 2, 40000 ** 2, 100 ** 2]))
+    initial_covariance = CovarianceMatrix(np.diag([50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2, 50000 ** 2, 100 ** 2]))
 
     deviation = np.linalg.cholesky(initial_covariance).T @ np.random.normal(size=initial_state.state_vector.shape)
     # deviation = np.array([-122068.01433784, 69.37315652, 507.76211348, -86.74038986, -58321.63970861, 89.04789997]).reshape((6, 1))
