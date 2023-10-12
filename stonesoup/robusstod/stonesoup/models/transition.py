@@ -11,6 +11,7 @@ from ....base import Property
 from ....types.array import CovarianceMatrix
 from ....types.array import CovarianceMatrix, StateVector, Matrix
 
+from ....robusstod.physics.godot import jacobian_godot
 
 
 class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
@@ -43,6 +44,9 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         jacrows = torch.autograd.functional.jacobian(da, torch.tensor(state_input))
         for i, r in enumerate(jacrows):
             A[i] = r
+
+        """ GODOT Jacobian"""
+        A = jacobian_godot(state)
 
         return (A)
 

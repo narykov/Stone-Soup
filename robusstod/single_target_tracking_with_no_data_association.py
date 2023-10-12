@@ -23,13 +23,13 @@ from stonesoup.updater.kalman import IteratedKalmanUpdater
 
 # ROBUSSTOD MODULES
 from stonesoup.robusstod.stonesoup.models.transition import LinearisedDiscretisation
-from stonesoup.robusstod.stonesoup.predictor import ExtendedKalmanPredictor
+from stonesoup.robusstod.stonesoup.predictor import ExtendedKalmanPredictor, UnscentedKalmanPredictor
 from stonesoup.robusstod.stonesoup.smoother import IPLSKalmanSmoother
 from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
 from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
 
-use_godot = False
+use_godot = True
 if use_godot:
     try:
         import godot
@@ -62,8 +62,8 @@ def main():
     np.random.seed(1991)
     start_time = datetime(2000, 1, 1)
     time_parameters = {
-        'n_time_steps': 10,
-        'time_interval': timedelta(seconds=10)
+        'n_time_steps': 50,
+        'time_interval': timedelta(seconds=120)
     }
     # TODO: consider arbitrary time intervals to demonstrate the flexibility of the approach
     timesteps = [start_time + k * time_parameters['time_interval'] for k in range(time_parameters['n_time_steps'])]
@@ -153,13 +153,14 @@ def main():
         )
 
     # Here we finally specify how the filtering recursion is implemented
-    predictor = ExtendedKalmanPredictor(transition_model)
+    predictor_ekf = ExtendedKalmanPredictor(transition_model)
+    predictor_ukf = UnscentedKalmanPredictor(transition_model)
     updater_iplf = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5)  # Using default values
     updater_iekf = IteratedKalmanUpdater(max_iterations=5)
 
     # Perform tracking/filtering/smooting
-    track_iplf = do_single_target_tracking(prior=prior, predictor=predictor, updater=updater_iplf, measurements=measurements)
-    track_iekf = do_single_target_tracking(prior=prior, predictor=predictor, updater=updater_iekf, measurements=measurements)
+    track_iplf = do_single_target_tracking(prior=prior, predictor=predictor_ukf, updater=updater_iplf, measurements=measurements)
+    track_iekf = do_single_target_tracking(prior=prior, predictor=predictor_ekf, updater=updater_iekf, measurements=measurements)
     track_ipls = IPLSKalmanSmoother(transition_model=transition_model).smooth(track_iplf)
 
 

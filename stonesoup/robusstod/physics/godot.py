@@ -56,6 +56,65 @@ def diff_equation(state, **kwargs):
         print(e)
     accel = accel_godot.value() * ((1e3) ** 3)
 
+    state_torch = [x, y, z, x_dot, y_dot, z_dot]
+    state_array = [e.detach().numpy() for e in state_torch]
+    x_vec = ad.Vector(state_array, "x")
+    translation_model.set(x_vec)
+    print(translation_model.eval(tempo.XEpoch()))
+    print(translation_model.eval(tempo.XEpoch()))
+    nx = 6
+    A = np.zeros([nx, nx])
+
+
+    return (x_dot, torch.tensor(accel[0], requires_grad=False),
+            y_dot, torch.tensor(accel[1], requires_grad=False),
+            z_dot, torch.tensor(accel[2], requires_grad=False))
+
+
+def jacobian_godot(state, **kwargs):
+
+    if 'timestamp' in kwargs:
+        timeiso = kwargs['timestamp'].isoformat(timespec='microseconds')
+        timescale = 'TDB'
+        t = ' '.join([timeiso, timescale])
+        epoch = tempo.XEpoch(t)
+    else:
+        epoch = tempo.XEpoch()
+
+    (x, x_dot, y, y_dot, z, z_dot) = state
+    uni = cosmos.Universe(cosmos.util.load_yaml("universe.yml"))
+    tensor1 = torch.tensor([x, y, z, x_dot, y_dot, z_dot], requires_grad=True)
+    pos = ad.Vector(tensor1.detach().numpy(), 'x0')  # x, y, z, xdot, ydot, zdot
+
+    tscale = tempo.TimeScale.TDB
+
+    # epoch = tempo.XEpoch()
+    satellite = uni.frames.addPoint("Satellite", tscale)
+    icrf = uni.frames.axesId('ICRF')
+    earth = uni.frames.pointId('Earth')
+
+    translation_model = common.ConstantVectorTimeEvaluable(pos)
+    uni.frames.addTimeEvaluableTranslation(satellite, earth, icrf, translation_model)
+
+    dyn = uni.dynamics.get("Earth")
+
+    uni.frames.setAlias(dyn.point, satellite)
+    uni.frames.setAlias(dyn.coi, earth)
+    uni.frames.setAlias(dyn.axes, icrf)
+
+    try:
+        accel_godot = dyn.acc.eval(epoch)
+    except RuntimeError as e:
+        print(e)
+    accel = accel_godot.value() * ((1e3) ** 3)
+
+    """Jacobian GODOT"""
+    state_torch = [x, y, z, x_dot, y_dot, z_dot]
+    state_array = [e.detach().numpy() for e in state_torch]
+    x_vec = ad.Vector(state_array, "x")
+    translation_model.set(x_vec)
+    print(translation_model.eval(tempo.XEpoch()))
+
     return (x_dot, torch.tensor(accel[0], requires_grad=False),
             y_dot, torch.tensor(accel[1], requires_grad=False),
             z_dot, torch.tensor(accel[2], requires_grad=False))
