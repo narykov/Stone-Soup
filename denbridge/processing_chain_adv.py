@@ -144,6 +144,8 @@ def plot_tracks(tracks, plot_data, margin=0.5*500, **kwargs):
     step = kwargs['step']
     timestamp = kwargs['timestamp']
     textstr = f'{step:03d} | {timestamp.time()} | Subplot capacity: {num_subplots:02d} | Alive tracks: {n_tracks:02d}'
+    plot_detections(kwargs['detector'].detections)
+
     ax.text(0.05, 0.05, textstr, transform=ax.transAxes, fontsize=10, verticalalignment='top', bbox=props)
     # ax.text(0.05, 0.05, str(kwargs['timestamp']), transform=ax.transAxes, fontsize=10, verticalalignment='top', bbox=props)
 
@@ -269,6 +271,8 @@ def main():
 
         # Plot tracks
         pixels = reader.sensor_data.pixels
+        # plt_detections(detector.detections)
+
         plot_tracks(current_tracks, plot_data,
                     tracks_id_db=tracks_id_db, pixels=pixels, timestamp=timestamp, step=step, detector=detector)
         # Store tracks for next iteration. It is important to make a copy here, otherwise we will
@@ -297,7 +301,7 @@ def main():
         # plt.gca().set_ylim(lims['ylim'])
         name = 'image' + str(step).zfill(6)
         fig.savefig('img/{}.png'.format(name), dpi=192)
-        plt.pause(0.05)
+        # plt.pause(0.05)
         # plt.show()
         # plt.clf()
 
