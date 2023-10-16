@@ -19,7 +19,7 @@ class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
     time_step: datetime = Property(doc="timedelta")
     rng_min: float = Property(doc="Min range in radar data")
     rng_instrumental: float = Property(doc="Max range in radar data")
-    rng_cutoff: float = Property(doc="Cutoff range (to extract a subset of data)")
+    lims: dict = Property(doc="Cutoff range (to extract a subset of data)")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -32,22 +32,28 @@ class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
             return np.sqrt(x ** 2 + y ** 2)
 
         def _bearing(x, y):
-            angles = np.arctan2(x, y)
+            angles = np.arctan2(y, x)
             out = np.where(angles > np.pi/2, angles - 2 * np.pi, angles)  #
             return out
 
         b_n = self.datashape[0]
+        r_n = self.datashape[1]
         b_delta = 2 * np.pi / b_n  # assuming the same angle is not measured twice
-        r_delta = (self.rng_instrumental - self.rng_min) / b_n
+        r_delta = (self.rng_instrumental - self.rng_min) / r_n
 
         b = np.arange(-3*np.pi/2, np.pi / 2, b_delta)
         r = np.arange(self.rng_min, self.rng_instrumental, r_delta)
 
         # setting up a grid of query points
-        cutoff_rng = self.rng_cutoff if self.rng_cutoff < self.rng_instrumental else self.rng_instrumental
-        x = np.arange(-cutoff_rng, cutoff_rng, r_delta)
-        bb = _bearing(x[:, None], x[None, :])  # bearings corresponding to the grid
-        rr = _rng(x[:, None], x[None, :])  # ranges corresponding to the grid
+        # cutoff_rng = self.rng_cutoff if self.rng_cutoff < self.rng_instrumental else self.rng_instrumental
+        lims = self.lims
+        xlim, ylim = lims['xlim'], lims['ylim']
+        # xlim = [-7500, 7500]
+        # ylim = [-7500, 7500]
+        x = np.arange(xlim[0], xlim[1], r_delta)
+        y = np.arange(ylim[0], ylim[1], r_delta)
+        bb = _bearing(x[None, :], y[:, None])  # bearings corresponding to the grid
+        rr = _rng(x[None, :], y[:, None])  # ranges corresponding to the grid
 
         interp = interpolate.RegularGridInterpolator((b, r), np.flip(polar_data, axis=0),
                                                      bounds_error=False, fill_value=np.nan)

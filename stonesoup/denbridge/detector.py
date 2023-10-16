@@ -14,7 +14,9 @@ class ObjectDetector(Detector):
     min_block_size: int = Property(doc="Minimum block size")
     fgbg: cv2.bgsegm.BackgroundSubtractorMOG = Property(doc="Background Subtractor")
     measurement_model: CartesianToBearingRange = Property(doc="Measurement model")
-    rng_pixels: int = Property(doc="Maximum number of range pixels to grab")
+    datashape: tuple = Property(doc="The size of data array in y and x coordinates")
+    rng_instrumental: int = Property(doc="Maximum number of range pixels to grab")
+    lims: dict = Property(doc="Cutoff range (to extract a subset of data)")
 
     @BufferedGenerator.generator_method
     def detections_gen(self, **kwargs):
@@ -32,8 +34,9 @@ class ObjectDetector(Detector):
         imgs = []
         for frame in frames:
             img = frame.pixels
-            max_pix = self.rng_pixels
-            img_interest = img[:, 0:max_pix]
+            # max_pix = self.rng_pixels
+            # img_interest = img[:, 0:max_pix]
+            img_interest = img
             img_interest = cv2.rotate(img_interest, cv2.ROTATE_90_COUNTERCLOCKWISE)
             imgs.append(img_interest[np.newaxis, :, :])
 
@@ -58,9 +61,12 @@ class ObjectDetector(Detector):
                 d_size = contours[_i].shape[0]
 
                 #TODO: sort out this ad hoc solution
-                b_n = 4096
+                # b_n = 4096
+                b_n = self.datashape[0]
+                r_n = self.datashape[1]
                 theta = np.pi/2 - detection_x * ( 2 * np.pi / b_n)
-                rho = (self.rng_pixels-detection_y) * (1852*32 / b_n)
+                rho = (self.rng_instrumental-detection_y) * (self.rng_instrumental / r_n)
+                rho = (r_n-detection_y) * (self.rng_instrumental / r_n)
 
                 detection = Detection(
                     state_vector=StateVector([[theta], [rho]]),
@@ -68,6 +74,12 @@ class ObjectDetector(Detector):
                     measurement_model=self.measurement_model,
                     metadata={'d_size': d_size}
                 )
-                detections.add(detection)
+
+                target_x, target_y = self.measurement_model.inverse_function(detection)[[0, 2]]
+                xlim, ylim = self.lims['xlim'], self.lims['ylim']
+                detection_in_x = True if xlim[0] <= target_x <= xlim[1] else False
+                detection_in_y = True if ylim[0] <= target_y <= ylim[1] else False
+                if detection_in_x * detection_in_y:
+                    detections.add(detection)
 
         return detections

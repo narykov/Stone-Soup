@@ -127,7 +127,7 @@ def main():
         updater=updater,
     )
 
-    use('Agg')  # hides the figures
+    # use('Agg')  # hides the figures
     tracks = set()
     tracks_id_db = {}
 
@@ -176,23 +176,24 @@ def main():
         # Update plot
         # plt.pause(0.1)
 
-        # pixels = reader.sensor_data.pixels
-        # im = plt.imshow(pixels, interpolation='none', origin='lower', cmap='jet',
-        #            extent=[-rng_cutoff, rng_cutoff, -rng_cutoff, rng_cutoff], vmin=0, vmax=255)
+        pixels = reader.sensor_data.pixels
+        im = plt.imshow(pixels, interpolation='none', origin='lower', cmap='jet',
+                   extent=[-rng_cutoff, rng_cutoff, -rng_cutoff, rng_cutoff], vmin=0, vmax=255)
         # cbar = plt.colorbar(im, orientation='vertical')
-        # # cbar.set_label('Receiver units')
-        # plt_detections(detector.detections)
-        # tracks.update(current_tracks)
-        # plt_tracks(current_tracks)
-        # print("Step: {} Time: {}".format(step, timestamp))
-        # plt.title(timestamp.strftime('%Y-%m-%d %H:%M:%S'))
-        # plt.gca().set_xlabel('Eastings, [m]')
-        # plt.gca().set_ylabel('Northings, [m]')
-        # plt.gca().set_xlim([-rng_cutoff, rng_cutoff])
-        # plt.gca().set_ylim([-rng_cutoff, rng_cutoff])
+        # cbar.set_label('Receiver units')
+        plt_detections(detector.detections)
+        tracks.update(current_tracks)
+        plt_tracks(current_tracks)
+        print("Step: {} Time: {}".format(step, timestamp))
+        plt.title(timestamp.strftime('%Y-%m-%d %H:%M:%S'))
+        plt.gca().set_xlabel('Eastings, [m]')
+        plt.gca().set_ylabel('Northings, [m]')
+        plt.gca().set_xlim([-rng_cutoff, rng_cutoff])
+        plt.gca().set_ylim([-rng_cutoff, rng_cutoff])
         name = 'image' + str(step).zfill(6)
         fig.savefig('img/{}.png'.format(name), dpi=192)
         plt.pause(0.05)
+        # plt.show()
         # plt.clf()
 
 

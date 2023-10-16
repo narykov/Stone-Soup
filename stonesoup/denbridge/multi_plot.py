@@ -25,12 +25,14 @@ from .utils import plot_detections
 num_subplots = 24                   # Number of subplots to show
 grid_size = (7, 7)                  # Size of the plotting grid (rows, cols)
 main_plot_size = (5, 5)             # Size of the center plot (rows, cols)
-rng_cutoff = 5000  # how far we wish to see with the radar
-V_BOUNDS = np.array([[-rng_cutoff, rng_cutoff],   # (x_min, x_max)
-                     [-rng_cutoff, rng_cutoff]])  # (y_min, y_max)
+# rng_cutoff = 5000  # how far we wish to see with the radar
+# V_BOUNDS = np.array([[-rng_cutoff, rng_cutoff],   # (x_min, x_max)
+#                      [-rng_cutoff, rng_cutoff]])  # (y_min, y_max)
+# V_BOUNDS = np.array([[-rng_cutoff, rng_cutoff],   # (x_min, x_max)
+#                      [-rng_cutoff, rng_cutoff]])  # (y_min, y_max)
 
 
-def reset_axis(ax, main=False):
+def reset_axis(ax, main=False, **kwargs):
     """Reset the axis object. If main is True, set the axis limits as well.
 
     Parameters
@@ -49,8 +51,9 @@ def reset_axis(ax, main=False):
         labelbottom=False,
         labelleft=False)
     if main:
-        ax.set_xlim(*V_BOUNDS[0])
-        ax.set_ylim(*V_BOUNDS[1])
+        pass
+        # ax.set_xlim(*V_BOUNDS[0])
+        # ax.set_ylim(*V_BOUNDS[1])
 
 
 def get_subplot_idx(plot_data, track):
@@ -129,7 +132,7 @@ def plot_track(track, ax, zoom=False, margin=0.5):
     leaving a margin of size `margin` around the state"""
     data = np.array([state.state_vector.squeeze() for state in track]).T
     linestyle = '-' if len(track) > 1 else '.'  # Use a line for tracks with more than one state
-    ax.plot(data[0, :], data[2, :], f'r{linestyle}', color='xkcd:white', markersize=1,
+    ax.plot(data[0, :], data[2, :], f'{linestyle}', color='xkcd:white', markersize=1,
             path_effects=[pe.Stroke(linewidth=4, foreground='k'), pe.Normal()])
     if zoom:
         ax.set_xlim(data[0, -1] - margin, data[0, -1] + margin)
