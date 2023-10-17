@@ -16,7 +16,7 @@ class ObjectDetector(Detector):
     measurement_model: CartesianToBearingRange = Property(doc="Measurement model")
     datashape: tuple = Property(doc="The size of data array in y and x coordinates")
     rng_instrumental: int = Property(doc="Maximum number of range pixels to grab")
-    lims: dict = Property(doc="Cutoff range (to extract a subset of data)")
+    V_BOUNDS: np.dtype = Property(doc="Data range")
 
     @BufferedGenerator.generator_method
     def detections_gen(self, **kwargs):
@@ -76,7 +76,7 @@ class ObjectDetector(Detector):
                 )
 
                 target_x, target_y = self.measurement_model.inverse_function(detection)[[0, 2]]
-                xlim, ylim = self.lims['xlim'], self.lims['ylim']
+                xlim, ylim = self.V_BOUNDS[0], self.V_BOUNDS[1]
                 detection_in_x = True if xlim[0] <= target_x <= xlim[1] else False
                 detection_in_y = True if ylim[0] <= target_y <= ylim[1] else False
                 if detection_in_x * detection_in_y:

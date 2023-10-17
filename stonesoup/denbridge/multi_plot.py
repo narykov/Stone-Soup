@@ -32,7 +32,7 @@ main_plot_size = (5, 5)             # Size of the center plot (rows, cols)
 #                      [-rng_cutoff, rng_cutoff]])  # (y_min, y_max)
 
 
-def reset_axis(ax, main=False, **kwargs):
+def reset_axis(ax, V_BOUNDS, main=False):
     """Reset the axis object. If main is True, set the axis limits as well.
 
     Parameters
@@ -51,9 +51,8 @@ def reset_axis(ax, main=False, **kwargs):
         labelbottom=False,
         labelleft=False)
     if main:
-        pass
-        # ax.set_xlim(*V_BOUNDS[0])
-        # ax.set_ylim(*V_BOUNDS[1])
+        ax.set_xlim(*V_BOUNDS[0])
+        ax.set_ylim(*V_BOUNDS[1])
 
 
 def get_subplot_idx(plot_data, track):
@@ -139,8 +138,10 @@ def plot_track(track, ax, zoom=False, margin=0.5):
         ax.set_ylim(data[2, -1] - margin, data[2, -1] + margin)
 
 
-def plot_tracks(tracks, plot_data, margin=0.5*500, **kwargs):
+def plot_tracks(tracks, plot_data, V_BOUNDS, margin=0.5*500, **kwargs):
     """Plot a list of tracks on the main plot and subplots."""
+
+    lims = {'xlim': V_BOUNDS[0], 'ylim': V_BOUNDS[1]}
 
     ax = plot_data['main']['ax']
     n_tracks = len(tracks)
@@ -148,11 +149,13 @@ def plot_tracks(tracks, plot_data, margin=0.5*500, **kwargs):
     # place a text box in upper left in axes coords
     plt.sca(ax)
     plt.imshow(kwargs['pixels'], interpolation='none', origin='lower', cmap='jet',
-                    extent=[-rng_cutoff, rng_cutoff, -rng_cutoff, rng_cutoff], vmin=0, vmax=255)
+                    extent=[*lims['xlim'], *lims['ylim']], vmin=0, vmax=255)
     # cbar = plt.colorbar(im, orientation='vertical')
     step = kwargs['step']
     timestamp = kwargs['timestamp']
     textstr = f'{step:03d} | {timestamp.time()} | Subplot capacity: {num_subplots:02d} | Alive tracks: {n_tracks:02d}'
+    plot_detections(kwargs['detector'].detections)
+
     ax.text(0.05, 0.05, textstr, transform=ax.transAxes, fontsize=10, verticalalignment='top', bbox=props)
     # ax.text(0.05, 0.05, str(kwargs['timestamp']), transform=ax.transAxes, fontsize=10, verticalalignment='top', bbox=props)
 
@@ -167,10 +170,10 @@ def plot_tracks(tracks, plot_data, margin=0.5*500, **kwargs):
         if subplot_idx is None:
             continue
         ax = plot_data['sub'][subplot_idx]['ax']
-        reset_axis(ax)
+        reset_axis(ax, V_BOUNDS)
         plt.sca(ax)
         plt.imshow(kwargs['pixels'], interpolation='none', origin='lower', cmap='jet',
-                   extent=[-rng_cutoff, rng_cutoff, -rng_cutoff, rng_cutoff], vmin=0, vmax=255)
+                   extent=[*lims['xlim'], *lims['ylim']], vmin=0, vmax=255)
         plot_detections(kwargs['detector'].detections)
         plot_track(track, ax, zoom=True, margin=margin)
         props = dict(boxstyle='square', facecolor='white', alpha=0.9)
@@ -211,7 +214,7 @@ def draw_connection(plot_data, track, sub_idx, color='white', linewidth=0.5, lin
     ax1.add_artist(con)
 
 
-def setup_plot(grid_size, main_plot_size, num_subplots):
+def setup_plot(grid_size, main_plot_size, num_subplots, V_BOUNDS):
     """Set up the plot and return the figure and plot_data dictionary."""
     fig = plt.figure(figsize=(8, 8))
 
@@ -225,7 +228,7 @@ def setup_plot(grid_size, main_plot_size, num_subplots):
     margin_cols = (grid_size[1] - main_plot_size[1]) // 2
     ax = fig.add_subplot(gs[margin_rows:-margin_rows, margin_rows:-margin_cols])
     ax.set_facecolor('xkcd:black')
-    reset_axis(ax, main=True)
+    reset_axis(ax, V_BOUNDS, main=True)
 
     # This dictionary will hold all the data needed for plotting. For each plot, we maintain a
     # dictionary with the axis object and a list of artists that will be updated. You can add
@@ -255,7 +258,7 @@ def setup_plot(grid_size, main_plot_size, num_subplots):
         # Create the axis object and add it to the plot_data dictionary
         ax = fig.add_subplot(gs[i, j])
         ax.set_facecolor('xkcd:black')
-        reset_axis(ax)
+        reset_axis(ax, V_BOUNDS)
         plot_data['sub'].append({
             'ax': ax,
             'arts': [],

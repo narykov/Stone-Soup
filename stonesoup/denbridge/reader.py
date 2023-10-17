@@ -19,7 +19,7 @@ class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
     time_step: datetime = Property(doc="timedelta")
     rng_min: float = Property(doc="Min range in radar data")
     rng_instrumental: float = Property(doc="Max range in radar data")
-    lims: dict = Property(doc="Cutoff range (to extract a subset of data)")
+    V_BOUNDS: np.dtype = Property(doc="Data range")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -46,8 +46,7 @@ class BinaryFileReaderRAW(BinaryFileReader, FrameReader):
 
         # setting up a grid of query points
         # cutoff_rng = self.rng_cutoff if self.rng_cutoff < self.rng_instrumental else self.rng_instrumental
-        lims = self.lims
-        xlim, ylim = lims['xlim'], lims['ylim']
+        xlim, ylim = self.V_BOUNDS[0], self.V_BOUNDS[1]
         # xlim = [-7500, 7500]
         # ylim = [-7500, 7500]
         x = np.arange(xlim[0], xlim[1], r_delta)
