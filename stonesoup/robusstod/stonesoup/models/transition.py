@@ -45,8 +45,8 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         for i, r in enumerate(jacrows):
             A[i] = r
 
-        """ GODOT Jacobian"""
-        A = jacobian_godot(state)
+        # """ GODOT Jacobian"""
+        # A = jacobian_godot(state)
 
         return (A)
 

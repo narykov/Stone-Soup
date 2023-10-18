@@ -108,12 +108,12 @@ def jacobian_godot(state, **kwargs):
         print(e)
     accel = accel_godot.value() * ((1e3) ** 3)
 
-    """Jacobian GODOT"""
-    state_torch = [x, y, z, x_dot, y_dot, z_dot]
-    state_array = [e.detach().numpy() for e in state_torch]
-    x_vec = ad.Vector(state_array, "x")
-    translation_model.set(x_vec)
-    print(translation_model.eval(tempo.XEpoch()))
+    # """Jacobian GODOT"""
+    # state_torch = [x, y, z, x_dot, y_dot, z_dot]
+    # state_array = [e.detach().numpy() for e in state_torch]
+    # x_vec = ad.Vector(state_array, "x")
+    # translation_model.set(x_vec)
+    # print(translation_model.eval(tempo.XEpoch()))
 
     return (x_dot, torch.tensor(accel[0], requires_grad=False),
             y_dot, torch.tensor(accel[1], requires_grad=False),

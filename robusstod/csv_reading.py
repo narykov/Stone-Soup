@@ -16,11 +16,9 @@ ylimits = plt.gca().get_ylim()
 
 
 fig_2, ax_2 = plt.subplots()
-i = 1
+i = 1  # station to visualise
 df.head(16).loc[df['STATION'] == stations[i]].plot.scatter(
     x='TIME', y='RANGE', marker='.', ax=ax_2, color=color[i], label=stations[i]
 )
 plt.ylim(ylimits)
 plt.xticks(rotation=45, ha='right')
-
-print()
