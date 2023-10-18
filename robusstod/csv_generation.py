@@ -17,30 +17,11 @@ def get_filenames(abs_dir):
     return sorted(file_set)
 
 
-def get_data_fields(infile):
-    data_fields = set()
-    data_start_flag = False
-    for line_full in infile:
-        line = line_full.rstrip()
-
-        if line == 'DATA_STOP':
-            break
-
-        if data_start_flag is not True:
-            data_start_flag = True if line == 'DATA_START' else False
-            continue
-
-        data_fields.add(line.split(' = ')[0])
-
-    infile.seek(0)
-
-    return sorted(list(data_fields))
-
-def get_data_frame(infile, metadata):
+def get_data_frame(infile):
     # collect the data field names
+    metadata = {}
     skipping_entries = ['META_START', 'META_STOP', 'DATA_START', 'DATA_STOP']
-    data_fields = get_data_fields(infile)
-    df = pd.DataFrame(columns=['TIME', 'STATION', *data_fields])
+    df = pd.DataFrame()
     previous_time = None
     reading = dict()
     data_start_flag = False
@@ -54,24 +35,23 @@ def get_data_frame(infile, metadata):
         key, value = line.split(' = ')
         # if we are still collecting metadata
         if not data_start_flag:
-            metadata[key] = value.strip()
+            metadata[key] = value
             continue
 
         # if we are actually dealing with data
         time, entry_value = value.split()
         if previous_time is not None and previous_time != time:
-            time_clean = datetime.strptime(time, '%Y-%m-%dT%H:%M:%S.%fZ')
-            reading['TIME'] = time_clean
+            reading['TIME'] = datetime.strptime(time, '%Y-%m-%dT%H:%M:%S.%fZ')
             reading['STATION'] = metadata['PARTICIPANT_1']
-            df_the_dict = pd.DataFrame.from_dict({'data': reading.values()}, orient='index',
+            reading['TARGET_ID'] = metadata['PARTICIPANT_2']
+            df_the_dict = pd.DataFrame.from_dict({'values': reading.values()}, orient='index',
                                                  columns=reading.keys())
             df = pd.concat([df, df_the_dict], ignore_index=True)
             reading = dict()
         previous_time = time
-
         reading[key] = float(entry_value)
 
-    return df
+    return df, metadata
 
 def main():
     onlyfiles = get_filenames(root_dir)
@@ -79,17 +59,19 @@ def main():
 
     for filename in onlyfiles:
         path = os.path.normpath(os.path.join(root_dir, filename))
-        metadata = {'filename': filename}
 
         with open(path, 'r', encoding='utf-8') as infile:
-            df = get_data_frame(infile, metadata)
+            df, metadata = get_data_frame(infile)
 
         dfs = pd.concat([dfs, df], ignore_index=True)
 
-    dfs = dfs.sort_values(by=['TIME']).copy()
+    cols = df.columns.values
+    trailing = ['TIME', 'TARGET_ID', 'STATION']
+    following = sorted(list(set(cols) - set(trailing)))
+    new_cols = trailing + following
+    dfs = dfs[new_cols].sort_values(by=['TIME'])
     filename = ''.join([root_dir.split('/')[-3], '.csv'])
     dfs.to_csv('src/csv/'+filename, index=False, index_label='TIME', mode='w+')
 
 if __name__ == "__main__":
     main()
-    
