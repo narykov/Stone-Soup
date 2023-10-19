@@ -51,8 +51,8 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
 
         """
 
-        # Record the starting point
-        prev_state = hypothesis.prediction
+        # Record the starting point (not a posterior here, rather a variable that stores an entry for KLD computation)
+        prev_post_state = hypothesis.prediction  # Prior is only on the first step, later updated
 
         # Get the measurement model out of the measurement if it's there.
         # If not, use the one native to the updater (which might still be none).
@@ -64,16 +64,11 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
             measurement_model=measurement_model
         )  # UKF measurement prediction that relies on Unscented Transform and is required in the update
         post_state = super().update(hypothesis, **kwargs)  # <- just this line alone isn't enough as it implements KF
-
         # Now update the measurement prediction mean and loop
         iterations = 1
-        while self.measure(prev_state, post_state) > self.tolerance:
+        while self.measure(prev_post_state, post_state) > self.tolerance:
 
-            if iterations >= self.max_iterations:
-                warnings.warn("IPLF update reached maximum number of iterations.")
-                break
-
-            # SLR is wrt to tne approximated posterior in post_state, not the original prior in prev_state
+            # SLR is wrt to tne approximated posterior in post_state, not the original prior in hypothesis.prediction
             measurement_prediction = UnscentedKalmanUpdater().predict_measurement(
                 predicted_state=post_state,
                 measurement_model=measurement_model
@@ -89,10 +84,11 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
                 noise_covar=r_cov_matrix + omega_cov_matrix)
 
             hypothesis.measurement_prediction = super().predict_measurement(
-                predicted_state=prev_state,
+                predicted_state=hypothesis.prediction,
                 measurement_model=measurement_model_linearized)
             hypothesis.measurement.measurement_model = measurement_model_linearized
 
+            prev_post_state = post_state
             # update is computed using the original prior in hypothesis.prediction
             post_state = super().update(hypothesis, **kwargs)  # classic Kalman update
             post_state.hypothesis.measurement.measurement_model = measurement_model
@@ -107,6 +103,8 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
             # increment counter
             iterations += 1
 
-        print("IPLF update took {} iterations and the KLD value of {}.".format(iterations, *self.measure(prev_state, post_state)))
+        print("IPLF update took {} iterations and the KLD value of {}.".format(
+            iterations, *self.measure(prev_post_state, post_state)
+        ))
 
         return post_state
