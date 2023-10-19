@@ -3,7 +3,7 @@ from ....types.array import CovarianceMatrix, StateVector, Matrix
 from ....models.base import LinearModel, GaussianModel
 from ....models.measurement.base import MeasurementModel
 
-import godot
+# import godot
 from ....models.base import ReversibleModel
 from ....models.measurement.nonlinear import NonLinearGaussianMeasurement
 from ....types.array import StateVectors
@@ -85,75 +85,75 @@ class GeneralLinearGaussian(MeasurementModel, LinearModel, GaussianModel):
         return self.matrix(**kwargs)@state.state_vector + self.bias_value + noise
 
 
-class CartesianToElevationBearingRangeGODOT(NonLinearGaussianMeasurement, ReversibleModel):
-    #TODO: rename the function to ROBUSSTOD, and maybe inherit CartesianToElevationBearingRange for simplicity
-
-    uni: Callable = Property(doc="Universe")
-    station: Callable = Property(doc="Sensor location")
-    translation_offset: StateVector = Property(
-        default=None,
-        doc="A 3x1 array specifying the Cartesian origin offset in terms of :math:`x,y,z` "
-            "coordinates.")
-
-    def __init__(self, *args, **kwargs):
-        """
-        Ensure that the translation offset is initiated
-        """
-        super().__init__(*args, **kwargs)
-        # Set values to defaults if not provided
-        if self.translation_offset is None:
-            self.translation_offset = StateVector([0] * 3)
-
-    @property
-    def ndim_meas(self) -> int:
-        """ndim_meas getter method
-
-        Returns
-        -------
-        :class:`int`
-            The number of measurement dimensions
-        """
-
-        return 3
-
-    def function(self, state, noise=False, **kwargs) -> StateVector:
-
-        if isinstance(noise, bool) or noise is None:
-            if noise:
-                noise = self.rvs()
-            else:
-                noise = 0
-
-        # Account for origin offset
-        xyz = state.state_vector[self.mapping, :] - self.translation_offset
-
-        # Rotate coordinates
-        xyz_rot = self.rotation_matrix @ xyz
-
-        # Convert to Spherical
-        rho, phi, theta = cart2sphere(xyz_rot[0, :], xyz_rot[1, :], xyz_rot[2, :])
-        elevations = [Elevation(i) for i in theta]
-        bearings = [Bearing(i) for i in phi]
-
-        # rho_godot = distance(state, self.station, self.uni, statevectors=isinstance(state.state_vector, StateVectors))
-        # print(rho_basic-rho) <- to verify that they return the same value
-
-        return StateVectors([elevations, bearings, rho]) + noise
-
-    def inverse_function(self, detection, **kwargs) -> StateVector:
-
-        theta, phi, rho = detection.state_vector
-        xyz = StateVector(sphere2cart(rho, phi, theta))
-
-        inv_rotation_matrix = inv(self.rotation_matrix)
-        xyz = inv_rotation_matrix @ xyz
-
-        res = np.zeros((self.ndim_state, 1)).view(StateVector)
-        res[self.mapping, :] = xyz + self.translation_offset
-
-        return res
-
-    def rvs(self, num_samples=1, **kwargs) -> Union[StateVector, StateVectors]:
-        out = super().rvs(num_samples, **kwargs)
-        out = np.array([[Elevation(0.)], [Bearing(0.)], [0.]]) + out
-        return out
+# class CartesianToElevationBearingRangeGODOT(NonLinearGaussianMeasurement, ReversibleModel):
+#     #TODO: rename the function to ROBUSSTOD, and maybe inherit CartesianToElevationBearingRange for simplicity
+#
+#     uni: Callable = Property(doc="Universe")
+#     station: Callable = Property(doc="Sensor location")
+#     translation_offset: StateVector = Property(
+#         default=None,
+#         doc="A 3x1 array specifying the Cartesian origin offset in terms of :math:`x,y,z` "
+#             "coordinates.")
+#
+#     def __init__(self, *args, **kwargs):
+#         """
+#         Ensure that the translation offset is initiated
+#         """
+#         super().__init__(*args, **kwargs)
+#         # Set values to defaults if not provided
+#         if self.translation_offset is None:
+#             self.translation_offset = StateVector([0] * 3)
+#
+#     @property
+#     def ndim_meas(self) -> int:
+#         """ndim_meas getter method
+#
+#         Returns
+#         -------
+#         :class:`int`
+#             The number of measurement dimensions
+#         """
+#
+#         return 3
+#
+#     def function(self, state, noise=False, **kwargs) -> StateVector:
+#
+#         if isinstance(noise, bool) or noise is None:
+#             if noise:
+#                 noise = self.rvs()
+#             else:
+#                 noise = 0
+#
+#         # Account for origin offset
+#         xyz = state.state_vector[self.mapping, :] - self.translation_offset
+#
+#         # Rotate coordinates
+#         xyz_rot = self.rotation_matrix @ xyz
+#
+#         # Convert to Spherical
+#         rho, phi, theta = cart2sphere(xyz_rot[0, :], xyz_rot[1, :], xyz_rot[2, :])
+#         elevations = [Elevation(i) for i in theta]
+#         bearings = [Bearing(i) for i in phi]
+#
+#         # rho_godot = distance(state, self.station, self.uni, statevectors=isinstance(state.state_vector, StateVectors))
+#         # print(rho_basic-rho) <- to verify that they return the same value
+#
+#         return StateVectors([elevations, bearings, rho]) + noise
+#
+#     def inverse_function(self, detection, **kwargs) -> StateVector:
+#
+#         theta, phi, rho = detection.state_vector
+#         xyz = StateVector(sphere2cart(rho, phi, theta))
+#
+#         inv_rotation_matrix = inv(self.rotation_matrix)
+#         xyz = inv_rotation_matrix @ xyz
+#
+#         res = np.zeros((self.ndim_state, 1)).view(StateVector)
+#         res[self.mapping, :] = xyz + self.translation_offset
+#
+#         return res
+#
+#     def rvs(self, num_samples=1, **kwargs) -> Union[StateVector, StateVectors]:
+#         out = super().rvs(num_samples, **kwargs)
+#         out = np.array([[Elevation(0.)], [Bearing(0.)], [0.]]) + out
+#         return out
