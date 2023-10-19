@@ -134,6 +134,8 @@ class IPLSKalmanSmoother(UnscentedKalmanSmoother):
 
                 previous_state = current_state
 
+            # we define a dummy model here as the smoother implementation won't work unless some model is provided,
+            # in other words, it doesn't take None as an input, despite not using it
             transition_model_dummy = CombinedLinearGaussianTransitionModel(
                 len(measurement_model.mapping) * [ConstantVelocity(0)]
             )
