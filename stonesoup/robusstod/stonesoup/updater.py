@@ -68,6 +68,10 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
         iterations = 1
         while self.measure(prev_post_state, post_state) > self.tolerance:
 
+            if iterations >= self.max_iterations:
+                # warnings.warn("IPLF update reached maximum number of iterations.")
+                break
+
             # SLR is wrt to tne approximated posterior in post_state, not the original prior in hypothesis.prediction
             measurement_prediction = UnscentedKalmanUpdater().predict_measurement(
                 predicted_state=post_state,
