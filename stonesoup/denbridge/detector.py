@@ -43,6 +43,8 @@ class ObjectDetector(Detector):
         img_history = np.concatenate(imgs, axis=0)
         img = np.uint8(np.mean(img_history, axis=0))
         img_interest_blurred = cv2.GaussianBlur(img, (7, 7), cv2.BORDER_DEFAULT)
+        img_interest_blurred = cv2.GaussianBlur(img, (3, 3), cv2.BORDER_DEFAULT)
+
 
         fgmask = self.fgbg.apply(img_interest_blurred)
         fgmask = cv2.morphologyEx(fgmask, cv2.MORPH_CLOSE, (7, 7))

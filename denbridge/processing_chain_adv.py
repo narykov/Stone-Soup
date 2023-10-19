@@ -46,6 +46,12 @@ V_BOUNDS = np.array([[-0.5 * rng_instrumental, 0],   # (x_min, x_max)
 def main():
 
     temporal_smooth = 8  # number of historical images are used for smoothing
+    min_block_size = 8  # the minimum size of the detected block
+
+    temporal_smooth = 1  # number of historical images are used for smoothing
+    min_block_size = 8  # the minimum size of the detected block
+
+
     n_batches_cutoff = None  # how many track updates we wish to observe
     reader = BinaryFileReaderFrames(
         path=path,
@@ -60,8 +66,18 @@ def main():
         n_batches_cutoff=n_batches_cutoff
     )
 
-    min_block_size = 8  # the minimum size of the detected block
-    fgbg = cv2.bgsegm.createBackgroundSubtractorMOG(history=20, nmixtures=4, backgroundRatio=0.8, noiseSigma=9.0)
+    history=20
+    nmixtures=4
+    backgroundRatio=0.8
+    noiseSigma=9.0
+
+    history=30
+    nmixtures=3
+    backgroundRatio=0.7
+    noiseSigma=16.0
+
+    fgbg = cv2.bgsegm.createBackgroundSubtractorMOG(history=history, nmixtures=nmixtures,
+                                                    backgroundRatio=backgroundRatio, noiseSigma=noiseSigma)
     measurement_model = CartesianToBearingRange(
         ndim_state=4,
         mapping=(0, 2),
