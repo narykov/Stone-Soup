@@ -6,7 +6,7 @@ Tracking a single orbiting object with no detection failures (no false alarms an
 This is a demonstration using the implemented IEKF/IPLF/IPLS algorithms in the context of space situation awareness.
 It can use either built-in model of acceleration or GODOT's capability to evaluate acceleration.
 """
-
+from stonesoup.types.angle import Bearing, Elevation
 import sys
 from matplotlib.patches import Ellipse
 import matplotlib.pyplot as plt
@@ -144,21 +144,33 @@ def do_single_target_tracking(prior=None, predictor=None, updater=None, measurem
     track = Track([prior])
     plot_tracks([Track([prior])], mapping=mapping)
     plt.plot(0, 0, marker='d', color='k')
+    measurement_predictions = []
     for i, measurement in enumerate(measurements):
         plot_detection(measurement, mapping=mapping)
         prediction = predictor.predict(prior, timestamp=measurement.timestamp)
-        plot_prediction(prediction, mapping=mapping, step=i)
-        # plt.plot(0, 0, 'd')
+        # plot_prediction(prediction, mapping=mapping, step=i)
+        plt.plot(0, 0, 'd')
         hypothesis = SingleHypothesis(prediction, measurement)  # Group a prediction and measurement
+        # print(measurement.state_vector[0])
         post = updater.update(hypothesis)
-        measurement_prediction = Detection(state_vector=post.hypothesis.measurement_prediction.state_vector,
-                                           measurement_model=measurement.measurement_model)
-        plot_detection(measurement_prediction, mapping=mapping, marker='o')
+        # measurement_prediction = Detection(state_vector=post.hypothesis.measurement_prediction.state_vector,
+        #                                    measurement_model=measurement.measurement_model)
+        # measurement_predictions.append(measurement_prediction)
+        # plot_detection(measurement_prediction, mapping=mapping, marker='o')
         track.append(post)
         prior = track[-1]
         plt.gca().autoscale
 
     plot_tracks([track], mapping=mapping)
+
+    fig, ax = plt.subplots()
+    for i, data in enumerate(zip(measurements, measurement_predictions)):
+        true = data[0]
+        pred = data[1]
+        plt.scatter(i, true.state_vector[1], marker='x')
+        plt.scatter(i, pred.state_vector[1], marker='o')
+
+
     return track
 
 # class CSVDetectionReader(DetectionReader, _CSVReader):
@@ -226,7 +238,26 @@ class CSVDetectionReader(DetectionReader, _CSVReader):
         for col_name in self.state_vector_fields:
             value = float(row[col_name])
             if col_name.startswith('ANGLE'):
-                value = np.deg2rad(value)
+                if col_name == 'ANGLE_1':
+                    # value = value - 90
+                    if value > 90:
+                        pass
+                        # value = value - 360
+                    # print(value)
+                if col_name == 'ANGLE_1':
+                    print(f'In degrees {value}')
+                    value = np.deg2rad(value)
+                    print(f'In radians {value}')
+                    value = Bearing(value)
+                    print(f'In elevations {value}')
+                    print()
+                if col_name == 'ANGLE_2':
+                    # print(value)
+                    # print(f'In degrees {value}')
+                    value = np.deg2rad(value)
+                    # print(f'In radians {value}')
+                    value = Bearing(value)
+                    # print(f'In bearings {value}')
             if col_name in ['RANGE', 'DOPPLER_INSTANTANEOUS']:
                 value = value * 1000
             state_vector.append([value])
@@ -256,8 +287,7 @@ class CSVDetectionReader(DetectionReader, _CSVReader):
 
                 time = self._get_time(row)
                 sv = self._unit_conversion(row)
-                detection = Detection(state_vector=np.array(sv,
-                                                            dtype=np.float_),
+                detection = Detection(state_vector=StateVector(sv),
                                       timestamp=time,
                                       measurement_model=self.measurement_model,
                                       metadata=self._get_metadata(row))
@@ -373,11 +403,11 @@ def main():
         state_vector_fields=state_vector_fields,
         time_field="TIME",
         filters=filters,
-        max_datapoints=11,
+        max_datapoints=10,
         measurement_model=measurement_model
     )
 
-    initial_covariance = CovarianceMatrix(np.diag([1000 ** 2, 1000 ** 2, 1000 ** 2, 1000 ** 2, 1000 ** 2, 1000 ** 2]))
+    initial_covariance = CovarianceMatrix(np.diag([10000 ** 2, 1000 ** 2, 10000 ** 2, 1000 ** 2, 10000 ** 2, 1000 ** 2]))
     from stonesoup.types.state import GaussianState
     prior_state = GaussianState(state_vector=[0, 0, 0, 0, 0, 0], covar=initial_covariance)
     initial_state = detector.get_initial_state(prior_state=prior_state)
@@ -433,12 +463,12 @@ def main():
     # Here we finally specify how the filtering recursion is implemented
     predictor_ekf = ExtendedKalmanPredictor(transition_model)
     predictor_ukf = UnscentedKalmanPredictor(transition_model)
-    updater_iplf = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=1)  # Using default values
+    updater_iplf = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5)  # Using default values
     updater_iekf = IteratedKalmanUpdater(max_iterations=5)
 
     # Perform tracking/filtering/smooting
-    # track_iplf = do_single_target_tracking(prior=prior, predictor=predictor_ukf, updater=updater_iplf, measurements=measurements)
-    track_iekf = do_single_target_tracking(prior=prior, predictor=predictor_ekf, updater=updater_iekf, measurements=measurements)
+    track_iplf = do_single_target_tracking(prior=prior, predictor=predictor_ukf, updater=updater_iplf, measurements=measurements)
+    # track_iekf = do_single_target_tracking(prior=prior, predictor=predictor_ekf, updater=updater_iekf, measurements=measurements)
     # # track_ipls = IPLSKalmanSmoother(transition_model=transition_model).smooth(track_iplf)
     # track_iplf = do_stt(prior=prior, predictor=predictor_ukf, updater=updater_iplf, detector=detector)
     # track_iekf = do_stt(prior=prior, predictor=predictor_ekf, updater=updater_iekf, detector=detector)
