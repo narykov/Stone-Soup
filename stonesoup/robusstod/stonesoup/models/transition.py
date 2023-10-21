@@ -2,6 +2,7 @@ import numpy as np
 from scipy.linalg import expm
 import torch
 from collections.abc import Callable
+from functools import lru_cache
 
 from ....types.array import StateVector
 from ....models.transition.nonlinear import GaussianTransitionModel
@@ -21,6 +22,7 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
     linear_noise_coeffs: np.ndarray = Property(
         doc=r"The acceleration noise diffusion coefficients :math:`[q_x, \: q_y, \: q_z]^T`")
     diff_equation: Callable = Property(doc=r"Differential equation describing the force model")
+    jacobian_godot: Callable = Property(default=None, doc=r"Whether GODOT is used")
 
     @property
     def ndim_state(self):
@@ -33,21 +35,24 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         """
         return 6
 
+    @lru_cache()
     def _get_jacobian(self, f, x, **kwargs):
+        """This is how we linearise the nonlinear dynamic model"""
         timestamp = x.timestamp
-        da = lambda a: f(a, timestamp=timestamp)
         state = x.state_vector
-        nx = len(state)
-        A = np.zeros([nx, nx])
-        state_input = [i for i in state]
+        if self.jacobian_godot is None:
+            """ Torch Jacobian"""
+            da = lambda a: f(a, timestamp=timestamp)
+            nx = len(state)
+            A = np.zeros([nx, nx])
+            state_input = [i for i in state]
 
-        jacrows = torch.autograd.functional.jacobian(da, torch.tensor(state_input))
-        for i, r in enumerate(jacrows):
-            A[i] = r
-
-        # """ GODOT Jacobian"""
-        # A = jacobian_godot(state)
-
+            jacrows = torch.autograd.functional.jacobian(da, torch.tensor(state_input))
+            for i, r in enumerate(jacrows):
+                A[i] = r
+        else:
+            """ GODOT Jacobian"""
+            A = self.jacobian_godot(state, timestamp=timestamp)
         return (A)
 
     def _do_linearise(self, da, x, dt):
@@ -64,13 +69,16 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
         return newx
 
     def jacobian(self, state, **kwargs):
-        timestamp = state.timestamp
+        """Here it represents the transition matrix F in discrete time, as if nonlinear
+        dynamics model gets linearised. I didn't use 'transition_matrix' method of Linear model, as it doesn't take
+        initial state as an input."""
         da = self.diff_equation
-        dA = self._get_jacobian(da, state, timestamp=timestamp)  # state here is GroundTruthState
+        timestamp = state.timestamp
+        dA = self._get_jacobian(da, state, timestamp=timestamp)  # it is A in the Paul's note
         dt = kwargs['time_interval'].total_seconds()
-        A = expm(dA * dt)
+        A_d = expm(dA * dt)
 
-        return A
+        return A_d
 
     def function(self, state, noise=False, **kwargs) -> StateVector:
         da = self.diff_equation
