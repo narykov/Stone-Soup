@@ -28,8 +28,8 @@ from stonesoup.robusstod.stonesoup.smoother import IPLSKalmanSmoother
 from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
 from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
+use_godot = True
 
-use_godot = False
 if use_godot:
     try:
         import godot
@@ -37,6 +37,7 @@ if use_godot:
         print(e.msg)
         sys.exit(1)  # the exit code of 1 is a convention that means something went wrong
     from stonesoup.robusstod.physics.godot import KeplerianToCartesian, diff_equation
+    from stonesoup.robusstod.physics.godot import jacobian_godot
     fig_title = ' with GODOT physics'
 else:
     from stonesoup.robusstod.physics.basic import KeplerianToCartesian, diff_equation
@@ -62,7 +63,7 @@ def main():
     np.random.seed(1991)
     start_time = datetime(2000, 1, 1)
     time_parameters = {
-        'n_time_steps': 50,
+        'n_time_steps': 10,
         'time_interval': timedelta(seconds=120)
     }
     # TODO: consider arbitrary time intervals to demonstrate the flexibility of the approach
@@ -106,9 +107,12 @@ def main():
                                     covar=initial_covariance,
                                     timestamp=start_time)
 
+    if 'jacobian_godot' not in dir():
+        jacobian_godot = None
     transition_model = LinearisedDiscretisation(
         diff_equation=diff_equation,
-        linear_noise_coeffs=get_noise_coefficients(GM)
+        linear_noise_coeffs=get_noise_coefficients(GM),
+        jacobian_godot=jacobian_godot
     )
     # from stonesoup.models.transition.linear import CombinedLinearGaussianTransitionModel, ConstantVelocity
     # q = 1
