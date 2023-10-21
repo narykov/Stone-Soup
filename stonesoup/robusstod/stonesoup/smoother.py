@@ -64,7 +64,7 @@ class IPLSKalmanSmoother(UnscentedKalmanSmoother):
         while True:
             # we have no test of convergence, but limited the number of iterations
             if len(smoothed_tracks) >= self.n_iterations:
-                warnings.warn("IPLS reached pre-specified number of iterations.")
+                # warnings.warn("IPLS reached pre-specified number of iterations.")
                 break
             print(f'IPLS iteration {len(smoothed_tracks) + 1} out of {self.n_iterations}')
 
