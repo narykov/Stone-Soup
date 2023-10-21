@@ -32,7 +32,8 @@ def diff_equation(state, **kwargs):
     (x, x_dot, y, y_dot, z, z_dot) = state
     uni = cosmos.Universe(cosmos.util.load_yaml("universe.yml"))
     tensor1 = torch.tensor([x, y, z, x_dot, y_dot, z_dot], requires_grad=True)
-    pos = ad.Vector(tensor1.detach().numpy(), 'x0')  # x, y, z, xdot, ydot, zdot
+    name = 'x0'
+    pos = ad.Vector(tensor1.detach().numpy(), name)  # x, y, z, xdot, ydot, zdot
 
     tscale = tempo.TimeScale.TDB
 
@@ -55,16 +56,24 @@ def diff_equation(state, **kwargs):
     except RuntimeError as e:
         print(e)
     accel = accel_godot.value() * ((1e3) ** 3)
+    print()
+    # old_mapping = [0, 1, 2, 3, 4, 5]
+    # new_mapping = [0, 3, 1, 4, 2, 5]
+    # gradient_matrix = accel_godot.at([name])
+    # gradient_matrix[:, old_mapping] = gradient_matrix[:, new_mapping]
+    #
+    # A = np.eye(6) * [1, 0, 1, 0, 1, 0]
+    # A = np.c_[A[:, -1], A][:, :-1]
+    # A[[1, 3, 5], :] = gradient_matrix
 
-    state_torch = [x, y, z, x_dot, y_dot, z_dot]
-    state_array = [e.detach().numpy() for e in state_torch]
-    x_vec = ad.Vector(state_array, "x")
-    translation_model.set(x_vec)
-    print(translation_model.eval(tempo.XEpoch()))
-    print(translation_model.eval(tempo.XEpoch()))
-    nx = 6
-    A = np.zeros([nx, nx])
-
+    # state_torch = [x, y, z, x_dot, y_dot, z_dot]
+    # state_array = [e.detach().numpy() for e in state_torch]
+    # x_vec = ad.Vector(state_array, "x")
+    # translation_model.set(x_vec)
+    # print(translation_model.eval(tempo.XEpoch()).at('x'))
+    # print(translation_model.eval(tempo.XEpoch()))
+    # nx = 6
+    # A = np.zeros([nx, nx])
 
     return (x_dot, torch.tensor(accel[0], requires_grad=False),
             y_dot, torch.tensor(accel[1], requires_grad=False),
@@ -84,7 +93,8 @@ def jacobian_godot(state, **kwargs):
     (x, x_dot, y, y_dot, z, z_dot) = state
     uni = cosmos.Universe(cosmos.util.load_yaml("universe.yml"))
     tensor1 = torch.tensor([x, y, z, x_dot, y_dot, z_dot], requires_grad=True)
-    pos = ad.Vector(tensor1.detach().numpy(), 'x0')  # x, y, z, xdot, ydot, zdot
+    name = 'x0'
+    pos = ad.Vector(tensor1.detach().numpy(), name)  # x, y, z, xdot, ydot, zdot
 
     tscale = tempo.TimeScale.TDB
 
@@ -106,18 +116,19 @@ def jacobian_godot(state, **kwargs):
         accel_godot = dyn.acc.eval(epoch)
     except RuntimeError as e:
         print(e)
-    accel = accel_godot.value() * ((1e3) ** 3)
+    # accel = accel_godot.value() * ((1e3) ** 3)
 
     # """Jacobian GODOT"""
-    # state_torch = [x, y, z, x_dot, y_dot, z_dot]
-    # state_array = [e.detach().numpy() for e in state_torch]
-    # x_vec = ad.Vector(state_array, "x")
-    # translation_model.set(x_vec)
-    # print(translation_model.eval(tempo.XEpoch()))
+    old_mapping = [0, 1, 2, 3, 4, 5]
+    new_mapping = [0, 3, 1, 4, 2, 5]
+    gradient_matrix = accel_godot.at([name])
+    gradient_matrix[:, old_mapping] = gradient_matrix[:, new_mapping]
 
-    return (x_dot, torch.tensor(accel[0], requires_grad=False),
-            y_dot, torch.tensor(accel[1], requires_grad=False),
-            z_dot, torch.tensor(accel[2], requires_grad=False))
+    A = np.eye(6) * [1, 0, 1, 0, 1, 0]
+    A = np.c_[A[:, -1], A][:, :-1]
+    A[[1, 3, 5], :] = gradient_matrix
+
+    return A
 
 
 def distance(state, station, uni, **kwargs):
