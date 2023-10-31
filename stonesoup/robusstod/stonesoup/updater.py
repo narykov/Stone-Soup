@@ -16,7 +16,7 @@ from .functions import slr_definition
 
 class IPLFKalmanUpdater(UnscentedKalmanUpdater):
     """
-    Description goes here.
+    The update step of the IPLF algorithm.
     """
 
     tolerance: float = Property(
