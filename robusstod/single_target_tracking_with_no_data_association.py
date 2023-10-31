@@ -28,7 +28,9 @@ from stonesoup.robusstod.stonesoup.smoother import IPLSKalmanSmoother
 from stonesoup.robusstod.stonesoup.updater import IPLFKalmanUpdater
 from stonesoup.robusstod.physics.constants import G, M_earth
 from stonesoup.robusstod.physics.other import get_noise_coefficients
-use_godot = True
+import sys
+
+use_godot = False
 
 if use_godot:
     try:
@@ -107,12 +109,11 @@ def main():
                                     covar=initial_covariance,
                                     timestamp=start_time)
 
-    if 'jacobian_godot' not in dir():
-        jacobian_godot = None
+    jg = jacobian_godot if use_godot else None
     transition_model = LinearisedDiscretisation(
         diff_equation=diff_equation,
         linear_noise_coeffs=get_noise_coefficients(GM),
-        jacobian_godot=jacobian_godot
+        jacobian_godot=jg
     )
     # from stonesoup.models.transition.linear import CombinedLinearGaussianTransitionModel, ConstantVelocity
     # q = 1
