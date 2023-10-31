@@ -17,11 +17,8 @@ from .functions import slr_definition
 
 
 class IPLSKalmanSmoother(UnscentedKalmanSmoother):
-    r"""The unscented version of the Kalman filter. As with the parent version of the Kalman
-    smoother, the mean and covariance of the prediction are retrieved from the track. The
-    unscented transform is used to calculate the smoothing gain.
+    r"""The unscented implementation of the IPLS algorithm."""
 
-    """
     transition_model: TransitionModel = Property(doc="The transition model to be used.")
 
     alpha: float = Property(
@@ -71,10 +68,7 @@ class IPLSKalmanSmoother(UnscentedKalmanSmoother):
             if not smoothed_tracks:
                 # initialising by performing sigma-point smoothing via the UKF smoother
                 smoothed_track = UnscentedKalmanSmoother.smooth(self, track)
-                smoothed_track_uks = smoothed_track
                 smoothed_tracks.append(smoothed_track)
-                # import numpy as np
-                # np.linalg.cholesky(smoothed_track[0].covar)
                 continue
 
             track_forward = Track(track[0])  # starting the new forward track to be
@@ -142,25 +136,5 @@ class IPLSKalmanSmoother(UnscentedKalmanSmoother):
             linear_smoother = KalmanSmoother(transition_model=transition_model_dummy)
             smoothed_track = linear_smoother.smooth(track_forward)
             smoothed_tracks.append(smoothed_track)
-
-            # from ..utils import plot_tracks, plot_ground_truth, plot_detections, plot_linear_detections
-            # from matplotlib import pyplot as plt
-            # points = [update.hypothesis.prediction.state_vector for update in track_forward[1:]]
-            # points_orig = [update.hypothesis.prediction.state_vector for update in track[1:]]
-            # plot_ground_truth([track[1].hypothesis.measurement.groundtruth_path])
-            # plot_detections([state.hypothesis.measurement for state in track[1:]])
-            # plot_tracks([track], color='r', label='IPLF')
-            # plot_tracks([smoothed_track_uks], color='g', label='UKS')
-            # plot_tracks([track_forward], color='m', label='IPLS (fwd only)')
-            # for point in points:
-            #     plt.plot(point[0], point[2], marker='.', color='m')
-            # for point in points_orig:
-            #     plt.plot(point[0], point[2], marker='.', color='r')
-            # # measurement predictions
-            # mp = [state.hypothesis.measurement for state in track_forward[1:]]
-            # plot_linear_detections(mp, color='y')
-            # # plot_tracks([smoothed_track], color='y', label='IPLS')
-            # plt.legend()
-            # print()
 
         return smoothed_tracks[-1]
