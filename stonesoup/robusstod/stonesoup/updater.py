@@ -3,13 +3,12 @@ import numpy as np
 from functools import lru_cache
 
 from ...base import Property
-from ...functions import gauss2sigma, unscented_transform
+from ...functions import gauss2sigma
 from ...types.prediction import Prediction, MeasurementPrediction
 from ...updater.kalman import KalmanUpdater #UnscentedKalmanUpdater
 from ...measures import Measure
 from ...models.measurement import MeasurementModel
 from ...types.array import CovarianceMatrix, StateVector
-import matplotlib.pyplot as plt
 
 # ROBUSSTOD CLASSES
 from .models.measurement import GeneralLinearGaussian
@@ -215,7 +214,6 @@ class IPLFKalmanUpdater(UnscentedKalmanUpdater):
         )  # UKF measurement prediction that relies on Unscented Transform and is required in the update
 
         post_state = super().update(hypothesis, **kwargs)  # <- just this line alone isn't enough as it implements KF
-        import matplotlib.pyplot as plt
         mapping = measurement_model.mapping
         # plt.gca().plot(hypothesis.measurement.state_vector[0], hypothesis.measurement.state_vector[1], 'b+')
         corresp_meas = measurement_model.function(post_state)
