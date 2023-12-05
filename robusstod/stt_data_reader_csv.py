@@ -195,69 +195,124 @@ def do_single_target_tracking(prior=None, predictor=None, updater=None, measurem
     error_log = pd.DataFrame(columns=['TIMESTAMP', 'ERROR_POS', 'ERROR_VEL', 'GROUND_TRUTH', 'INFERENCE', 'ORIGIN'])
     from stonesoup.measures import Euclidean
     cnt = 0
+    pos_est = []
     pos_true = []
     pos_recovered = []
+    pos_pred = []
+    prev_hypothesis = None
+    batch_counter = 1
+
+    # fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+    # measurement_subset = []
+    # start_time = datetime(2023, 8, 18, 0)
+    # end_time = datetime(2023, 8, 18, 18)
+    # for measurement in measurements:
+    #     if start_time <= measurement.timestamp <= end_time:
+    #         measurement_subset.append(measurement)
+    #
+    # elevations = [np.rad2deg(measurement.state_vector[0]) for measurement in measurement_subset]
+    # bearings = [np.rad2deg(measurement.state_vector[1]) for measurement in measurement_subset]
+    # timestamps = [measurement.timestamp for measurement in measurement_subset]
+    #
+    # ax1.plot(timestamps, elevations, '.')
+    # ax1.axhline(y=90, color='r', linestyle='--')
+    # ax1.axhline(y=-90, color='r', linestyle='--')
+    # ax1.set_ylabel('Elevation, [deg]')
+    #
+    #
+    # ax2.plot(timestamps, bearings, '.')
+    # ax2.axhline(y=180, color='r', linestyle='--')
+    # ax2.axhline(y=-180, color='r', linestyle='--')
+    # ax2.set_ylabel('Bearing, [deg]')
+
+
     for i, measurement in enumerate(measurements):
         plt.pause(0.005)
         if measurement != measurements[0]:
             delta_time = measurement.timestamp - previous_timestamp
             if delta_time > min_long_interval:
-                start_time = previous_timestamp
-                end_time = measurement.timestamp
-                # xgt, ygt, zgt = [], [], []
-                # xpred, ypred, zpred = [], [], []
+                batch_counter += 1
+                if False:
+                    start_time = previous_timestamp
+                    end_time = measurement.timestamp
+                    # xgt, ygt, zgt = [], [], []
+                    # xpred, ypred, zpred = [], [], []
 
-                counter = 0
-                print(f'Start_time: {start_time}')
-                for true_state in clairvoyant.detections_gen():
-                    if true_state.timestamp < start_time:
-                        print(f'Considered: {true_state.timestamp}')
-                        continue
-                    if true_state.timestamp >= end_time:
-                        break
-                    print(f'First taken: {true_state.timestamp}')
-                    counter += 1
-                    pred_state = predictor.predict(prior, timestamp=true_state.timestamp)
-                    if counter % 1 == 0:
-                        new_row = {
-                            'TIMESTAMP': true_state.timestamp,
-                            'GROUND_TRUTH': true_state.state_vector,
-                            'INFERENCE': pred_state.state_vector,
-                            'ERROR_POS': Euclidean(mapping=mapping)(true_state, pred_state),
-                            'ERROR_VEL': Euclidean(mapping=velocity_mapping)(true_state, pred_state),
-                            'ORIGIN': 'prediction'
-                        }
-                        error_log.loc[len(error_log)] = new_row
+                    counter = 0
+                    print(f'Start_time: {start_time}')
+                    for true_state in clairvoyant.detections_gen():
+                        if true_state.timestamp < start_time:
+                            # print(f'Considered: {true_state.timestamp}')
+                            continue
+                        if true_state.timestamp >= end_time:
+                            break
+                        # print(f'First taken: {true_state.timestamp}')
+                        counter += 1
+                        pred_state = predictor.predict(prior, timestamp=true_state.timestamp)
+                        if counter % 1000 == 0:
+                            new_row = {
+                                'TIMESTAMP': true_state.timestamp,
+                                'GROUND_TRUTH': true_state.state_vector,
+                                'INFERENCE': pred_state.state_vector,
+                                'ERROR_POS': Euclidean(mapping=mapping)(true_state, pred_state),
+                                'ERROR_VEL': Euclidean(mapping=velocity_mapping)(true_state, pred_state),
+                                'ORIGIN': 'prediction'
+                            }
+                            error_log.loc[len(error_log)] = new_row
 
-                    if counter % 10 == 0:
-                        ax.plot(*true_state.state_vector[mapping, :], marker='.', color='green', markersize=0.5)
-                        ax.plot(*pred_state.state_vector[mapping, :], marker='o', color='grey', markersize=0.5)
-                        # ax.text(*true_state.state_vector[mapping, :], str(counter), fontsize=0.5)
-                        # ax.text(*pred_state.state_vector[mapping, :], str(counter), fontsize=0.5)
-                        cnt += 1
-                        name = 'image' + str(cnt).zfill(6)
-                        fig.savefig('img/{}.png'.format(name), dpi=192)
-                        plt.pause(0.005)
-                    # # print()
-                # pred_state = predictor.predict(prior, timestamp=end_time)
-                # ax.plot(*pred_state.state_vector[mapping, :], marker='x', color='k', markersize=2)
-                    # xgt.append(state.state_vector[mapping[0]])
-                    # ygt.append(state.state_vector[mapping[1]])
-                    # zgt.append(state.state_vector[mapping[2]])
-                    #
-                    # prediction = predictor.predict(prior, timestamp=state.timestamp)
-                    # # xpred.append(prediction.state_vector[mapping[0]])
-                    # # ypred.append(prediction.state_vector[mapping[1]])
-                    # # zpred.append(prediction.state_vector[mapping[2]])
-                print()
-
+                        if counter % 1000 == 0:
+                            ax.plot(*true_state.state_vector[mapping, :], marker='.', color='green', markersize=0.5)
+                            ax.plot(*pred_state.state_vector[mapping, :], marker='o', color='grey', markersize=0.5)
+                            # ax.text(*true_state.state_vector[mapping, :], str(counter), fontsize=0.5)
+                            # ax.text(*pred_state.state_vector[mapping, :], str(counter), fontsize=0.5)
+                            cnt += 1
+                            name = 'image' + str(cnt).zfill(6)
+                            fig.savefig('img/{}.png'.format(name), dpi=192)
+                            plt.pause(0.005)
+                        # # print()
+                    # pred_state = predictor.predict(prior, timestamp=end_time)
+                    # ax.plot(*pred_state.state_vector[mapping, :], marker='x', color='k', markersize=2)
+                        # xgt.append(state.state_vector[mapping[0]])
+                        # ygt.append(state.state_vector[mapping[1]])
+                        # zgt.append(state.state_vector[mapping[2]])
+                        #
+                        # prediction = predictor.predict(prior, timestamp=state.timestamp)
+                        # # xpred.append(prediction.state_vector[mapping[0]])
+                        # # ypred.append(prediction.state_vector[mapping[1]])
+                        # # zpred.append(prediction.state_vector[mapping[2]])
+                    print()
 
         plot_detection3D(measurement, mapping=mapping, ax=ax, markersize=0.5)
+
         prediction = predictor.predict(prior, timestamp=measurement.timestamp)
+
+        if batch_counter > 2:
+            cov_shrink = 1  # 0.1 also works
+            prediction.covar = cov_shrink * prediction.covar
+            ax.plot(*prediction.state_vector[mapping, :], marker='x', color='grey', markersize=3)
+            ax.plot(*measurement.measurement_model.translation_offset, marker='.', color='g', markersize=3)
+
         previous_timestamp = measurement.timestamp
         hypothesis = SingleHypothesis(prediction, measurement)  # Group a prediction and measurement
         # print(measurement.state_vector[0])
-        post = updater.update(hypothesis)
+
+        time_of_interest = datetime(2023, 8, 17, 22, 20, 36, 549000)
+        time_of_interest = datetime(2023, 8, 18, 9, 43, 6, 740000)
+        md = hypothesis.measurement.metadata
+        true_state = State(state_vector=StateVector([float(md['TRUE_X']) * 1000, float(md['TRUE_VX']) * 1000,
+                                                         float(md['TRUE_Y']) * 1000, float(md['TRUE_VY']) * 1000,
+                                                         float(md['TRUE_Z']) * 1000, float(md['TRUE_VZ']) * 1000]),
+                           timestamp=measurement.timestamp)
+        measurement_gen = measurement.measurement_model.function(true_state)
+        measurement_gen_pred = measurement.measurement_model.function(prediction)
+        # print(measurement.timestamp)
+        # print(measurement.state_vector)
+        # print(measurement_gen)
+        # print(measurement_gen_pred)
+        if measurement.timestamp == time_of_interest:
+            print()
+        post = updater.update(hypothesis, time_of_interest=time_of_interest, prev_hypothesis=prev_hypothesis)
+        prev_hypothesis = hypothesis
         # measurement_prediction = Detection(state_vector=post.hypothesis.measurement_prediction.state_vector,
         #                                    measurement_model=measurement.measurement_model)
         # measurement_predictions.append(measurement_prediction)
@@ -269,9 +324,16 @@ def do_single_target_tracking(prior=None, predictor=None, updater=None, measurem
                                                      float(md['TRUE_Y'])*1000, float(md['TRUE_VY'])*1000,
                                                      float(md['TRUE_Z'])*1000, float(md['TRUE_VZ'])*1000]),
                            timestamp=post.timestamp)
-        pos_true.append(true_state.state_vector[mapping, :])
-        pos_recovered.append(measurement.measurement_model.inverse_function(measurement)[mapping, :])
-        plt.plot(*true_state.state_vector[mapping, :], marker='o', color='b', markersize=2)
+        pos_true.append([true_state.state_vector[mapping, :],
+                         true_state.timestamp])
+        pos_recovered.append([measurement.measurement_model.inverse_function(measurement)[mapping, :],
+                              measurement.timestamp])
+        pos_est.append([post.state_vector[mapping, :], post.timestamp])
+        pos_pred.append([post.hypothesis.prediction.state_vector[mapping, :], post.timestamp])
+
+        plt.plot(*true_state.state_vector[mapping, :], marker='o', color='k', markersize=2)
+        plt.plot(*post.hypothesis.prediction.state_vector[mapping, :], marker='x', color='grey', markersize=2)
+
         # print(true_state.timestamp)
         new_row = {
             'TIMESTAMP': true_state.timestamp,
@@ -291,20 +353,27 @@ def do_single_target_tracking(prior=None, predictor=None, updater=None, measurem
         plt.pause(0.5)
         # plt.gca().autoscale
 
-    fig1, ax1 = plt.subplots()
-    ax1.set_ylabel('Position error, [m]')
-    for origin in ['prediction', 'estimation']:
-        color = 'b' if origin == 'estimation' else 'grey'
-        style = 'o' if origin == 'estimation' else '.'
-        error_log.loc[error_log['ORIGIN'] == origin].plot(
-            x='TIMESTAMP', y='ERROR_POS', ax=ax1, style=style, markersize=3, color=color, label=origin)
-    ax1.set_xlabel('Time')
-    ax1.set_ylim(bottom=0.)
-
-    plt.show()
-
-
     # fig1, ax1 = plt.subplots()
+    # ax1.set_ylabel('Position error, [m]')
+    # for origin in ['prediction', 'estimation']:
+    #     color = 'b' if origin == 'estimation' else 'grey'
+    #     style = 'o' if origin == 'estimation' else '.'
+    #     error_log.loc[error_log['ORIGIN'] == origin].plot(
+    #         x='TIMESTAMP', y='ERROR_POS', ax=ax1, style=style, markersize=3, color=color, label=origin)
+    # ax1.set_xlabel('Time')
+    # ax1.set_ylim(bottom=0.)
+    #
+    # plt.show()
+    #
+    #
+    # fig1, ax1 = plt.subplots()
+    # for values, label in zip([pos_est, pos_true, pos_recovered], ['est', 'true', 'meas']):
+    #     positions = [value[0][0] for value in values]
+    #     times = [value[1] for value in values]
+    #     ax1.plot(times, positions, '.', label=label)
+    # ax1.legend()
+    #
+    #
     # x_est = [state.state_vector[0] for state in track]
     # ax1.plot(
     #     [state_true[0] for state_true, state_recovered in zip(pos_true, pos_recovered)],
@@ -316,27 +385,27 @@ def do_single_target_tracking(prior=None, predictor=None, updater=None, measurem
     #     [state.state_vector[0] for state in track],
     #     '.', label='x_est')
     # ax1.legend()
-    #
-    # ax1.plot([np.abs(state_true[0]-state_recovered[0]) for state_true, state_recovered in zip(pos_true, pos_recovered)], '-', label='x_error')
-    # ax1.plot([np.abs(state_true[1]-state_recovered[1]) for state_true, state_recovered in zip(pos_true, pos_recovered)], '-', label='y_error')
-    # ax1.plot([np.abs(state_true[2]-state_recovered[2]) for state_true, state_recovered in zip(pos_true, pos_recovered)], '-', label='z_error')
-    # ax1.legend()
-    #
-    #
-    # plot_tracks3D([track], mapping=mapping)
-    # ax = plt.gca()
-    # # for point in filler_points:
-    # #     data = point.state_vector
-    # #     ax.plot(data[mapping[0]], data[mapping[1]], data[mapping[2]], '-', marker='o', color='r')
-    # #     plt.pause(0.5)
-    #
-    # plt.gca().axis('equal')
-    # fig, ax = plt.subplots()
-    # for i, data in enumerate(zip(measurements, measurement_predictions)):
-    #     true = data[0]
-    #     pred = data[1]
-    #     plt.scatter(i, true.state_vector[1], marker='x')
-    #     plt.scatter(i, pred.state_vector[1], marker='o')
+    # #
+    # # ax1.plot([np.abs(state_true[0]-state_recovered[0]) for state_true, state_recovered in zip(pos_true, pos_recovered)], '-', label='x_error')
+    # # ax1.plot([np.abs(state_true[1]-state_recovered[1]) for state_true, state_recovered in zip(pos_true, pos_recovered)], '-', label='y_error')
+    # # ax1.plot([np.abs(state_true[2]-state_recovered[2]) for state_true, state_recovered in zip(pos_true, pos_recovered)], '-', label='z_error')
+    # # ax1.legend()
+    # #
+    # #
+    # # plot_tracks3D([track], mapping=mapping)
+    # # ax = plt.gca()
+    # # # for point in filler_points:
+    # # #     data = point.state_vector
+    # # #     ax.plot(data[mapping[0]], data[mapping[1]], data[mapping[2]], '-', marker='o', color='r')
+    # # #     plt.pause(0.5)
+    # #
+    # # plt.gca().axis('equal')
+    # # fig, ax = plt.subplots()
+    # # for i, data in enumerate(zip(measurements, measurement_predictions)):
+    # #     true = data[0]
+    # #     pred = data[1]
+    # #     plt.scatter(i, true.state_vector[1], marker='x')
+    # #     plt.scatter(i, pred.state_vector[1], marker='o')
 
 
     return track
@@ -498,6 +567,19 @@ class CSVDetectionReader(DetectionReader, _CSVReader):
                                       timestamp=self._get_time(row),
                                       measurement_model=self._get_measurement_model(row),
                                       metadata=self._get_metadata(row))
+                time_of_interest = datetime(2023, 8, 17, 22, 20, 36, 549000)
+                if detection.timestamp == time_of_interest:
+                    state_vector = StateVector(
+                        [float(row['TRUE_X']) * self.m_in_km,
+                         float(row['TRUE_VX']) * self.m_in_km,
+                         float(row['TRUE_Y']) * self.m_in_km,
+                         float(row['TRUE_VY']) * self.m_in_km,
+                         float(row['TRUE_Z']) * self.m_in_km,
+                         float(row['TRUE_VZ']) * self.m_in_km])
+                    true_state = State(state_vector=state_vector,
+                                       timestamp=detection.timestamp)
+                    detection.state_vector = detection.measurement_model.function(true_state, noise=False)
+
 
                 yield detection
 
@@ -520,8 +602,10 @@ class CSVDetectionReader(DetectionReader, _CSVReader):
 
                 initiator = SimpleMeasurementInitiator(prior_state=prior_state)
                 tracks = initiator.initiate([detection], timestamp)
+                prior = tracks.pop()  # stone soup vision
+                prior.state_vector[[1, 3, 5], :] = 0  # removing the velocity components
 
-                return tracks.pop()
+                return prior
 
 
 def main():
@@ -603,7 +687,7 @@ def main():
     clairvoyant = CSVTruthReader(
         path=path_oem,
         state_vector_fields=state_vector_fields,
-        time_field="TIMESTAMP_TAI"
+        time_field="TIME_TAI"
     )
 
     initial_covariance = CovarianceMatrix(np.diag([10000 ** 2, 1000 ** 2, 10000 ** 2, 1000 ** 2, 10000 ** 2, 1000 ** 2]))
@@ -662,7 +746,7 @@ def main():
     # Here we finally specify how the filtering recursion is implemented
     predictor_ekf = ExtendedKalmanPredictor(transition_model)
     predictor_ukf = UnscentedKalmanPredictor(transition_model)
-    updater_iplf = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5)  # Using default values
+    updater_iplf = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5, alpha=0.45)  # Using default values
     updater_iekf = IteratedKalmanUpdater(max_iterations=5)
 
     # Perform tracking/filtering/smooting
