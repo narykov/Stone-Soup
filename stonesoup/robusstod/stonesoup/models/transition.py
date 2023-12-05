@@ -22,7 +22,7 @@ class LinearisedDiscretisation(GaussianTransitionModel, TimeVariantModel):
     linear_noise_coeffs: np.ndarray = Property(
         doc=r"The acceleration noise diffusion coefficients :math:`[q_x, \: q_y, \: q_z]^T`")
     diff_equation: Callable = Property(doc=r"Differential equation describing the force model")
-    jacobian_godot: Callable = Property(default=None, doc=r"Whether GODOT is used")
+    jacobian_godot: Callable = Property(doc=r"Whether GODOT is used")
 
     @property
     def ndim_state(self):
