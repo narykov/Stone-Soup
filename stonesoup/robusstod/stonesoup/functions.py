@@ -107,7 +107,7 @@ def unscented_transform(sigma_points_states, mean_weights, covar_weights,
         print("Crouse's measurmement prediction activated.")
         from ...robusstod.crouse import sigma2gauss as sigma2gauss_crouse
         mean_crouse, covar_crouse, cross_covar_crouse, sigma_points_t_crouse = (
-            sigma2gauss_crouse(sigma_points, mean_weights, covar_weights, fun)
+            sigma2gauss_crouse(sigma_points, mean_weights, covar_weights, fun, covar_noise=covar_noise)
         )
         # print(f'Before Crouse: {mean}.')
         mean = mean_crouse
