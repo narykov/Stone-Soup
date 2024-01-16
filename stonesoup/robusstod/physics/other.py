@@ -9,5 +9,6 @@ def get_noise_coefficients(GM):
     # 1e-11 IDS;
     st_dev = ratio * GM
     q = st_dev ** 2
+    q = 1
     q_xdot, q_ydot, q_zdot = q, q, q
     return np.array([q_xdot, q_ydot, q_zdot])
