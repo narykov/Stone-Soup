@@ -38,7 +38,7 @@ class AugmentedKalmanPredictor(KalmanPredictor):
 class ExtendedKalmanPredictor(ExtendedKalmanPredictorOriginal):
     """Updates the arguments that are passed to covariance prediction in KalmanPredictor"""
 
-    def _predicted_covariance(self, prior, predict_over_interval, **kwargs):
+    def _predicted_covariance(self, prior, predict_over_interval, control_input=None, **kwargs):
         r"""Simply includes prior into kwargs of self.transition_model.covar() so as to make it possible
         to evaluate covariance using prior pdf (unlike in the original implementation)"""
 
@@ -50,34 +50,20 @@ class ExtendedKalmanPredictor(ExtendedKalmanPredictorOriginal):
 
         # As this is Kalman-like, the control model must be capable of
         # returning a control matrix (B)
-        ctrl_mat = self._control_matrix
+        ctrl_mat = self._control_matrix(control_input=control_input,
+                                        time_interval=predict_over_interval, **kwargs)
         ctrl_noi = self.control_model.control_noise
 
         return trans_m @ prior_cov @ trans_m.T + trans_cov + ctrl_mat @ ctrl_noi @ ctrl_mat.T
+
 
 
 class UnscentedKalmanPredictor(UnscentedKalmanPredictorOriginal):
     """Updates the arguments that are passed to covariance prediction in KalmanPredictor"""
 
-    def _predicted_covariance(self, prior, predict_over_interval, **kwargs):
-        r"""Simply includes prior into kwargs of self.transition_model.covar() so as to make it possible
-        to evaluate covariance using prior pdf (unlike in the original implementation)"""
-
-        prior_cov = prior.covar
-        trans_m = self._transition_matrix(prior=prior, time_interval=predict_over_interval,
-                                          **kwargs)
-        # trans_cov = self.transition_model.covar(time_interval=predict_over_interval, **kwargs)  # <- previous version
-        trans_cov = self.transition_model.covar(prior=prior, time_interval=predict_over_interval, **kwargs)
-
-        # As this is Kalman-like, the control model must be capable of
-        # returning a control matrix (B)
-        ctrl_mat = self._control_matrix
-        ctrl_noi = self.control_model.control_noise
-
-        return trans_m @ prior_cov @ trans_m.T + trans_cov + ctrl_mat @ ctrl_noi @ ctrl_mat.T
 
     @predict_lru_cache()
-    def predict(self, prior, timestamp=None, **kwargs):
+    def predict(self, prior, timestamp=None, control_input=None, **kwargs):
         r"""The unscented version of the predict step
 
         Parameters
@@ -104,10 +90,12 @@ class UnscentedKalmanPredictor(UnscentedKalmanPredictorOriginal):
         # TODO: covariances, i.e. sum them before calculating
         # TODO: the sigma points and then just sticking them into the
         # TODO: unscented transform, and I haven't checked the statistics.
+        ctrl_mat = self.control_model.matrix(time_interval=predict_over_interval, **kwargs)
+        ctrl_noi = self.control_model.covar(**kwargs)
         total_noise_covar = \
             self.transition_model.covar(
                 prior=prior, time_interval=predict_over_interval, **kwargs) \
-            + self.control_model.control_noise
+            + ctrl_mat @ ctrl_noi @ ctrl_mat.T
 
         # Get the sigma points from the prior mean and covariance.
         sigma_point_states, mean_weights, covar_weights = gauss2sigma(
@@ -117,6 +105,7 @@ class UnscentedKalmanPredictor(UnscentedKalmanPredictorOriginal):
         # correct time interval
         transition_and_control_function = partial(
             self._transition_and_control_function,
+            control_input=control_input,
             time_interval=predict_over_interval)
 
         # Put these through the unscented transform, together with the total
@@ -129,8 +118,6 @@ class UnscentedKalmanPredictor(UnscentedKalmanPredictorOriginal):
         # and return a Gaussian state based on these parameters
         return Prediction.from_state(prior, x_pred, p_pred, timestamp=timestamp,
                                      transition_model=self.transition_model)
-
-
 
 
 class AugmentedUnscentedKalmanPredictor(UnscentedKalmanPredictor):
@@ -153,7 +140,7 @@ class AugmentedUnscentedKalmanPredictor(UnscentedKalmanPredictor):
             "3-Ns")
 
     @predict_lru_cache()
-    def predict(self, prior, timestamp=None, **kwargs):
+    def predict(self, prior, timestamp=None, control_input=None, **kwargs):
         r"""The unscented version of the predict step
 
         Parameters
@@ -180,11 +167,12 @@ class AugmentedUnscentedKalmanPredictor(UnscentedKalmanPredictor):
         # TODO: covariances, i.e. sum them before calculating
         # TODO: the sigma points and then just sticking them into the
         # TODO: unscented transform, and I haven't checked the statistics.
+        ctrl_mat = self.control_model.matrix(time_interval=predict_over_interval, **kwargs)
+        ctrl_noi = self.control_model.covar(**kwargs)
         total_noise_covar = \
             self.transition_model.covar(
-                prior=prior,
-                time_interval=predict_over_interval, **kwargs) \
-            + self.control_model.control_noise
+                prior=prior, time_interval=predict_over_interval, **kwargs) \
+            + ctrl_mat @ ctrl_noi @ ctrl_mat.T
 
         # Get the sigma points from the prior mean and covariance.
         sigma_point_states, mean_weights, covar_weights = gauss2sigma(
@@ -194,6 +182,7 @@ class AugmentedUnscentedKalmanPredictor(UnscentedKalmanPredictor):
         # correct time interval
         transition_and_control_function = partial(
             self._transition_and_control_function,
+            control_input=control_input,
             time_interval=predict_over_interval)
 
         # Put these through the unscented transform, together with the total
