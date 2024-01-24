@@ -2,21 +2,14 @@ import numpy as np
 from pathlib import Path
 from typing import Sequence
 
-
-from datetime import datetime, timedelta
-from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
-from stonesoup.models.transition.linear import CombinedLinearGaussianTransitionModel, \
-                                               ConstantVelocity
+from datetime import timedelta
 from stonesoup.base import Property
 from stonesoup.models.transition.nonlinear import GaussianTransitionModel
 from stonesoup.models.base import TimeVariantModel
 from stonesoup.types.array import CovarianceMatrix, StateVector
 
-import godot
 from godot import cosmos
-from godot.cosmos.cosmos import Universe, Trajectory
 from godot.core import tempo
-import matplotlib.pyplot as plt
 from stonesoup.robusstod.utils_gmv import Config
 
 class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
