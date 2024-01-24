@@ -18,3 +18,5 @@ htmlcov/
 #Animation plotting example
 docs/examples/example_animation.gif
 /robusstod/src/
+/robusstod/trajectory_test.yml
+/robusstod/universe_test.yml
