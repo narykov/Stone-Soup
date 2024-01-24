@@ -169,10 +169,6 @@ class KalmanSmoother(Smoother):
             # Delta t
             time_interval = subsq_state.timestamp - state.timestamp
 
-            if state.timestamp == track[0].timestamp:
-                import numpy as np
-                print()
-
             # Retrieve the prediction from the subsequent (k+1th) timestep accessed previously
             prediction = self._prediction(subsq_state)
             # The smoothing gain, mean and covariance
