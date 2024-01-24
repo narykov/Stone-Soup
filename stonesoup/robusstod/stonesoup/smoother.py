@@ -1,7 +1,7 @@
 import warnings
-
+import numpy as np
 from ...base import Property
-from ...smoother.kalman import KalmanSmoother, UnscentedKalmanSmoother
+from ...smoother.kalman import KalmanSmoother as KS, UnscentedKalmanSmoother
 from ...types.hypothesis import SingleHypothesis
 from ...types.track import Track
 from ...updater.kalman import KalmanUpdater, UnscentedKalmanUpdater
@@ -14,6 +14,29 @@ from .models.transition import LinearTransitionModel
 from .predictor import AugmentedUnscentedKalmanPredictor
 from .predictor import AugmentedKalmanPredictor
 from .functions import slr_definition
+
+
+class KalmanSmoother(KS):
+
+    def _smooth_gain(self, state, prediction, **kwargs):
+        """Calculate the smoothing gain
+
+        Parameters
+        ----------
+        state : :class:`~.State`
+            The input state
+        prediction : :class:`~.GaussianStatePrediction`
+            The prediction (from the subsequent state)
+
+        Returns
+        -------
+         : Matrix
+            The smoothing gain
+
+        """
+        return state.covar @ self._transition_matrix(prediction, **kwargs).T @ np.linalg.inv(
+            prediction.covar)
+
 
 
 class IPLSKalmanSmoother(UnscentedKalmanSmoother):
@@ -67,16 +90,15 @@ class IPLSKalmanSmoother(UnscentedKalmanSmoother):
 
             if not smoothed_tracks:
                 # initialising by performing sigma-point smoothing via the UKF smoother
-                smoothed_track = UnscentedKalmanSmoother.smooth(self, track)
+                smoothed_track = UnscentedKalmanSmoother(transition_model=self.transition_model).smooth(track)
                 smoothed_tracks.append(smoothed_track)
                 continue
 
             track_forward = Track(track[0])  # starting the new forward track to be
-
             for current_state in smoothed_track:
 
                 if current_state.timestamp == smoothed_track[0].timestamp:
-                    previous_state = current_state
+                    previous_state = track_forward[0]
                     continue
 
                 """ Compute SLR parameters. """
@@ -128,13 +150,7 @@ class IPLSKalmanSmoother(UnscentedKalmanSmoother):
 
                 previous_state = current_state
 
-            # we define a dummy model here as the smoother implementation won't work unless some model is provided,
-            # in other words, it doesn't take None as an input, despite not using it
-            transition_model_dummy = CombinedLinearGaussianTransitionModel(
-                len(measurement_model.mapping) * [ConstantVelocity(0)]
-            )
-            linear_smoother = KalmanSmoother(transition_model=transition_model_dummy)
-            smoothed_track = linear_smoother.smooth(track_forward)
+            smoothed_track = KalmanSmoother(transition_model=self.transition_model).smooth(track_forward)  # <- this triggers UKF??
             smoothed_tracks.append(smoothed_track)
 
         return smoothed_tracks[-1]
