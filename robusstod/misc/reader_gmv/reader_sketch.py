@@ -44,6 +44,7 @@ class TDMReader(FileReader):
     osdm_folder_path: Path = Property(doc="Path to file to be opened. Str will be converted to path.")
     stationMeasDict: dict = Property(doc="Describes what measurements stations take.")
     data_folder_path: Path = Property(doc="Path to file to be opened. Str will be converted to path.")
+    universe_path: str = Property(doc="Path to file to be opened.")
 
     # TODO: consider extraction of the ground truth for the simulated objects
     # TODO: harmonise the path variables
@@ -364,16 +365,12 @@ def main():
     }  # extracted by hand from ROBUSSTOD_TDS_DELIVERY_27OCT2023 subfolders
     stationMeasDict.update(stationMeasDictAdditional)
 
-    # # dataset_package_name = 'ROBUSSTOD_TDS'
-    # tdsName = "RODDAS_OD_00_015"
-    # path = Path("RODDAS_OD_00_015")
-    # roddas_path = Path('RODDAS_OD_00_015')
-
     reader = TDMReader(
         path='RODDAS_OD_00_015/tdm/00001_RR01_20230817T100415_20230817T100511.tdm',
         osdm_folder_path='RODDAS_OD_00_015/osdm',
         stationMeasDict=stationMeasDict,
-        data_folder_path='robusstod/misc/reader_gmv/data'
+        data_folder_path='robusstod/misc/reader_gmv/data',
+        universe_path='universe.yml'
     )
 
     detections_list = []
