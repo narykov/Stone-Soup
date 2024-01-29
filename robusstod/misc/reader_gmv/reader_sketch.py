@@ -250,8 +250,10 @@ class TDMReader(FileReader):
     def _radec(self, entry, offsets):
         # unchecked telescope likelihood
         # TODO: check how to set up the offsets as RaDec is supposedly measured from the centre of Earth
-        # TODO: redefine function() in CartesianToElevationBearingRangeRate using obSim module in GODOT
-        # TODO: can ultimately be tested by comparing measurements generated from the ground truth
+        # TODO: redefine function() in CartesianToElevationBearing
+        # TODO: https://github.com/dstl/Stone-Soup/blob/0a9ebe2584eb6cd3d77756fd9dfa7b98649799fd/stonesoup/models/measurement/nonlinear.py#L427
+        # TODO: using tools in obsim module as distrubuted by GMV
+        # TODO: this can ultimately be tested by comparing dataset measurements to those generated from the ground truth
 
         measurement_model = CartesianToElevationBearing(
             mapping=self.mapping,
