@@ -1,0 +1,38 @@
+settings:
+  relTol: 1e-09
+  absTol: 1e-09
+  steps: 1000000
+
+setup:
+  - name: SC_center
+    type: point
+
+timeline:
+
+  - type: point
+    name: start
+    point:
+      reference: initial_state
+      dt: 0 day
+
+  - type: control
+    name: initial_state
+    epoch: 2020-01-01T00:00:00.000000 UTC
+    state:
+      - name: SC_center
+        body: Earth
+        axes: GCRF
+        project: true
+        dynamics: EMS
+        value:
+          sma: 6850 km
+          ecc: 0.001
+          inc: 50.977375209 deg
+          ran: 9.244625754 deg
+          aop: 134.816031541 deg
+          tan: 99.281080841 deg
+  - type: point
+    name: end
+    point:
+      reference: initial_state
+      dt: 4 day

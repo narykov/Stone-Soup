@@ -1,0 +1,171 @@
+version: '3.0'
+spacetime:
+  system: BCRS
+
+ephemeris:
+  - name: de432
+    files:
+      - data/ephemeris/de432.jpl
+  - name: gm431
+    files:
+      - data/ephemeris/gm_de431.tpc
+
+stations:
+  - name: earthStations
+    file: data/database/GroundStationsDatabase.json
+
+constants:
+  ephemeris:
+    - source: de432
+  data:
+    EarthGM: 398600.4415
+
+frames:
+  - name: ephem1
+    type: Ephem
+    config:
+      source: de432
+  - name: ITRF
+    type: AxesOrient
+    config:
+      model: IERS2000
+      nutation: data/orient/nutation2000A.ipf
+      erp: data/orient/finals2000A.data.ipf
+  - name: GCRF
+    type: AxesOrient
+    config:
+      model: EMEJ2000
+  - name: TOD
+    type: AxesOrient
+    config:
+      model: TOD
+      nutation: data/orient/nutation2000A.ipf
+      erp: data/orient/finals2000A.data.ipf
+  - name: TEME
+    type: AxesOrient
+    config:
+      model: TEME
+      nutation: data/orient/nutation2000A.ipf
+  - name: stations1
+    type: Stations
+    config:
+      source: earthStations
+      points: false
+  - name: stations2
+    type: Stations
+    config:
+      source: earthStations
+      axes: false
+
+bodies:
+  - name: Earth
+    point: Earth
+    gravity:
+      - EarthGrav
+      - EarthSolidTides
+    gm: EarthGrav
+  - name: Sun
+    point: Sun
+  - name: Moon
+    point: Moon
+
+gravity:
+  - name: gravEMS
+    bodies:
+      - parent: ''
+        center: Sun
+        barycenter: ''
+      - parent: ''
+        center: Earth
+        barycenter: ''
+      - parent: Earth
+        center: Moon
+        barycenter: ''
+  - name: gravE
+    bodies:
+      - parent: ''
+        center: Earth
+        barycenter: ''
+
+atmosphere:
+  - config:
+      point: Earth
+      axes: ITRF
+      file: data/atmos/solmag.ipf
+    name: EarthAtmos
+    type: nrlmsise00
+
+sphericalHarmonics:
+  - name: EarthGrav
+    type: File
+    config:
+      point: Earth
+      degree: 64
+      order: 64
+      axes: ITRF
+      file: data/gravity/eigen05c_80_sha.tab
+  - name: EarthSolidTides
+    type: EarthTides
+    config:
+      base: EarthGrav
+      solidTides: data/gravity/solid_tides.tab
+
+dynamics:
+  - name: EMS_gravity
+    type: SystemGravity
+    config:
+      model: gravEMS
+    
+  - name: E_gravity
+    type: SystemGravity
+    config:
+      model: gravE
+
+  - name: EMS_srp
+    type: SimpleSRP
+    config:
+      occulters:
+        - Earth
+      mass: SC_mass
+      area: SC_srp_area
+      cr: SC_srp_cr
+
+  - name: EMS_drag
+    type: SimpleDrag
+    config:
+      atmosphere: EarthAtmos
+      mass: SC_mass
+      area: SC_drag_area
+      cd: SC_drag_cd
+
+  - name: EMS
+    type: Combined
+    config:
+      - EMS_gravity
+      - EMS_srp
+      - EMS_drag
+
+  - name: E
+    type: Combined
+    config:
+      - E_gravity
+      # - EMS_srp
+      # - EMS_drag
+
+spacecraft:
+  - name: SC
+    mass: 1000.0 kg
+    srp:
+      area: 10.0 m^2
+      cr: srp_cr
+    drag:
+      area: 10.0 m^2
+      cd: drag_cd
+
+parameters:
+  - name: drag_cd
+    type: Parameter
+    value: '2.2'
+  - name: srp_cr
+    type: Parameter
+    value: '2.2'
