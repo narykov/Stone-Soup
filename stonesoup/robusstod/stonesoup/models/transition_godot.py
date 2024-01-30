@@ -9,7 +9,7 @@ from stonesoup.models.base import TimeVariantModel
 from stonesoup.types.array import CovarianceMatrix, StateVector
 
 from godot import cosmos
-from godot.core import tempo
+from godot.core import tempo, util
 from stonesoup.robusstod.utils_gmv import Config
 
 class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
@@ -25,6 +25,10 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
         default=(1, 3, 5),
         doc="Mapping between measurement and state dims"
     )
+    timescale: str = Property(
+        default='TDB',
+        doc="Timescale: TDB or TAI"
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -35,8 +39,15 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
         # we assemble a configuration that will be repeatedly re-configured when performing individual propagations
         self.config = Config(self.universe_path, self.trajectory_path)
         self.overshoot_time = timedelta(seconds=1)  # this is to ensure that the propagated point is within the scope of propagation
-        self.strf_tai = "%Y-%m-%dT%H:%M:%S TAI"
         self.strf_tdb = "%Y-%m-%dT%H:%M:%S TDB"
+        self.strf_tai = "%Y-%m-%dT%H:%M:%S TAI"
+        if self.timescale == 'TDB':
+            self.strf = self.strf_tdb
+        elif self.timescale == 'TAI':
+            self.strf = self.strf_tai
+        else:
+            breakpoint()
+
         self.mapping_godot = (0, 1, 2)
         self.mapping_velocity_godot = (3, 4, 5)
 
@@ -64,8 +75,8 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
         out[[self.mapping_velocity_godot]] = state[[self.mapping_velocity]]  # velocity
         return out / 1000
 
-    def datetime_to_epoch(self, timestamp, epoch=True, timescale='TDB'):
-        formatting = self.strf_tdb if timescale is 'TDB' else self.strf_tai
+    def datetime_to_epoch(self, timestamp, epoch=True):
+        formatting = self.strf_tdb if self.timescale == 'TDB' else self.strf_tai
         t = timestamp.strftime(formatting)
         return tempo.Epoch(t) if epoch else t
 
@@ -73,6 +84,7 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
         # time_interval_sec = kwargs['time_interval'].total_seconds()
         sv1 = state.state_vector  # state in cartesian coordiantes
         sv1_godot = self.stonesoup_to_godot(sv1)
+        util.suppressLogger()
 
         timestamp_current = state.timestamp
         time_interval = kwargs['time_interval']
@@ -90,7 +102,7 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
         trajectory = cosmos.Trajectory(universe, self.config.trajectory)
         trajectory.compute(partials=True)
 
-        sv2_godot = universe.frames.vector6('Earth', 'SC_center', 'ICRF', godot_times['overshoot'])
+        sv2_godot = universe.frames.vector6('Earth', 'SC_center', 'ICRF', godot_times['prediction'])
         sv2 = StateVector(self.godot_to_stonesoup(sv2_godot))
 
         if isinstance(noise, bool) or noise is None:
