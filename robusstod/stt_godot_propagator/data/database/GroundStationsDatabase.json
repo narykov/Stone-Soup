@@ -1,0 +1,98 @@
+{
+    "TR01":
+     {
+        "stationAlias"                 :   ["TR01"],
+        "coordinates"                  :   ["5057.929624673591 km","-597.2266679826765 km","3826.6409926632728 km"],
+        "plateMotion"                  :   ["0.0 km/year","0.0 km/year","0.0 km/year"],
+        "refEpoch"                     : "2005-01-01T00:00:00.000 TDB",
+        "refCenter"                    : "Earth",
+        "refAxis"                      : "ITRF",
+        "mountingType"                 : "AZ/EL",
+        "heightAboveAntennaFoot"       : "0.0 m",
+        "dryOffset"                    : "0.0 m"
+    },
+    "TR02":
+     {
+        "stationAlias"                 :   ["TR02"],
+        "coordinates"                  :   ["4581.871305592797 km","556.3766669993305 km","4389.141146635574 km"],
+        "plateMotion"                  :   ["0.0 km/year","0.0 km/year","0.0 km/year"],
+        "refEpoch"                     : "2005-01-01T00:00:00.000 TDB",
+        "refCenter"                    : "Earth",
+        "refAxis"                      : "ITRF",
+        "mountingType"                 : "AZ/EL",
+        "heightAboveAntennaFoot"       : "0.0 m",
+        "dryOffset"                    : "0.0 m"
+    },
+    "TR03":
+     {
+        "stationAlias"                 :   ["TR03"],
+        "coordinates"                  :   ["4660.44284430098 km","1028.597491877836 km","4217.011891079399 km"],
+        "plateMotion"                  :   ["0.0 km/year","0.0 km/year","0.0 km/year"],
+        "refEpoch"                     : "2005-01-01T00:00:00.000 TDB",
+        "refCenter"                    : "Earth",
+        "refAxis"                      : "ITRF",
+        "mountingType"                 : "AZ/EL",
+        "heightAboveAntennaFoot"       : "0.0 m",
+        "dryOffset"                    : "0.0 m"
+    },
+    "TR04":
+     {
+        "stationAlias"                 :   ["TR04"],
+        "coordinates"                  :   ["4595.206981848606 km","2039.4663096207287 km","3912.6245085777477 km"],
+        "plateMotion"                  :   ["0.0 km/year","0.0 km/year","0.0 km/year"],
+        "refEpoch"                     : "2005-01-01T00:00:00.000 TDB",
+        "refCenter"                    : "Earth",
+        "refAxis"                      : "ITRF",
+        "mountingType"                 : "AZ/EL",
+        "heightAboveAntennaFoot"       : "0.0 m",
+        "dryOffset"                    : "0.0 m"
+    },
+    "RR01":
+     {
+        "stationAlias"                 :   ["RR01"],
+        "coordinates"                  :   ["4008.2500329681493 km","-101.45954358301351 km","4943.745541643838 km"],
+        "plateMotion"                  :   ["0.0 km/year","0.0 km/year","0.0 km/year"],
+        "refEpoch"                     : "2005-01-01T00:00:00.000 TDB",
+        "refCenter"                    : "Earth",
+        "refAxis"                      : "ITRF",
+        "mountingType"                 : "AZ/EL",
+        "heightAboveAntennaFoot"       : "0.0 m",
+        "dryOffset"                    : "0.0 m"
+    },
+    "RR02":
+     {
+        "stationAlias"                 :   ["RR02"],
+        "coordinates"                  :   ["4043.099836749096 km","542.2243324687538 km","4887.030529737266 km"],
+        "plateMotion"                  :   ["0.0 km/year","0.0 km/year","0.0 km/year"],
+        "refEpoch"                     : "2005-01-01T00:00:00.000 TDB",
+        "refCenter"                    : "Earth",
+        "refAxis"                      : "ITRF",
+        "mountingType"                 : "AZ/EL",
+        "heightAboveAntennaFoot"       : "0.0 m",
+        "dryOffset"                    : "0.0 m"
+    },
+    "RR03":
+     {
+        "stationAlias"                 :   ["RR03"],
+        "coordinates"                  :   ["5064.758515136256 km","-495.8096320863315 km","3832.213738512219 km"],
+        "plateMotion"                  :   ["0.0 km/year","0.0 km/year","0.0 km/year"],
+        "refEpoch"                     : "2005-01-01T00:00:00.000 TDB",
+        "refCenter"                    : "Earth",
+        "refAxis"                      : "ITRF",
+        "mountingType"                 : "AZ/EL",
+        "heightAboveAntennaFoot"       : "0.0 m",
+        "dryOffset"                    : "0.0 m"
+    },
+    "RR04":
+     {
+        "stationAlias"                 :   ["RR04"],
+        "coordinates"                  :   ["4569.184857229446 km","442.7444848100846 km","4414.415547907236 km"],
+        "plateMotion"                  :   ["0.0 km/year","0.0 km/year","0.0 km/year"],
+        "refEpoch"                     : "2005-01-01T00:00:00.000 TDB",
+        "refCenter"                    : "Earth",
+        "refAxis"                      : "ITRF",
+        "mountingType"                 : "AZ/EL",
+        "heightAboveAntennaFoot"       : "0.0 m",
+        "dryOffset"                    : "0.0 m"
+    }
+}
