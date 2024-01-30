@@ -7,6 +7,8 @@ from stonesoup.base import Property
 from stonesoup.models.transition.nonlinear import GaussianTransitionModel
 from stonesoup.models.base import TimeVariantModel
 from stonesoup.types.array import CovarianceMatrix, StateVector
+from ruamel.yaml.comments import CommentedMap as _CommentedMap
+
 
 from godot import cosmos
 from godot.core import tempo, util
@@ -41,15 +43,20 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
         self.overshoot_time = timedelta(seconds=1)  # this is to ensure that the propagated point is within the scope of propagation
         self.strf_tdb = "%Y-%m-%dT%H:%M:%S TDB"
         self.strf_tai = "%Y-%m-%dT%H:%M:%S TAI"
+        self.strf_utc = "%Y-%m-%dT%H:%M:%S UTC"
         if self.timescale == 'TDB':
             self.strf = self.strf_tdb
         elif self.timescale == 'TAI':
             self.strf = self.strf_tai
+        elif self.timescale == 'UTC':
+            self.strf = self.strf_utc
         else:
             breakpoint()
 
         self.mapping_godot = (0, 1, 2)
         self.mapping_velocity_godot = (3, 4, 5)
+        del self.config.trajectory['timeline'][2]['point']['dt']  # '4 day'
+        del self.config.trajectory['timeline'][2]['point']['reference']  # '4 day'
 
 
     @property
@@ -76,7 +83,7 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
         return out / 1000
 
     def datetime_to_epoch(self, timestamp, epoch=True):
-        formatting = self.strf_tdb if self.timescale == 'TDB' else self.strf_tai
+        formatting = self.strf
         t = timestamp.strftime(formatting)
         return tempo.Epoch(t) if epoch else t
 
@@ -89,16 +96,22 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
         timestamp_current = state.timestamp
         time_interval = kwargs['time_interval']
         godot_times = {
-            'current': self.datetime_to_epoch(timestamp_current),
-            'prediction': self.datetime_to_epoch(timestamp_current + time_interval),
-            'overshoot': self.datetime_to_epoch(timestamp_current + time_interval + self.overshoot_time)
+            'current': self.datetime_to_epoch(timestamp_current, epoch=True),
+            'prediction': self.datetime_to_epoch(timestamp_current + time_interval, epoch=True),
+            'overshoot': self.datetime_to_epoch(timestamp_current + time_interval + self.overshoot_time, epoch=True)
         }
         # initialise the universe with a configuration in universe.yml
         universe = cosmos.Universe(self.config.universe)
         # re-configure the trajectory.yml entries to fit the current propagation needs
+
         self.config.set_epoch(godot_times['current'])  # use the current time stamp to specify the epoch in trajectory.yml
         self.config.set_epoch_future(godot_times['overshoot'])  # specify the future epoch in trajectory.yml
         self.config.set_state_cart(sv1_godot)  # use the current state to specify the control point in trajectory.yml
+        # tra_cfg = self.config.trajectory
+        # current_time_str_scale = tra_cfg['timeline'][1]['epoch']  # '2020-01-01T00:00:00.000000 UTC'
+        # current_state_kepl_dict = tra_cfg['timeline'][1]['state'][0]['value']
+        # del self.config.trajectory['timeline'][2]['point']['dt']  # '4 day'
+        # del self.config.trajectory['timeline'][2]['point']['reference']  # '4 day'
         trajectory = cosmos.Trajectory(universe, self.config.trajectory)
         trajectory.compute(partials=True)
 

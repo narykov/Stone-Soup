@@ -852,7 +852,11 @@ def main():
     #     )
 
     measurements = []
+    counter = 0
     for measurement in detector.detections_gen():
+        counter += 1
+        if counter == 1:
+            continue
         measurements.append(measurement)
 
 
