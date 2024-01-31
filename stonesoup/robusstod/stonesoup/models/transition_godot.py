@@ -12,7 +12,7 @@ from ruamel.yaml.comments import CommentedMap as _CommentedMap
 
 from godot import cosmos
 from godot.core import tempo, util
-from stonesoup.robusstod.utils_gmv import Config
+from stonesoup.robusstod.python_libs.utils_gmv import Config
 
 class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
     universe_path: Path = Property(doc="Path to file to be opened. Str will be converted to path.")
@@ -55,6 +55,7 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
 
         self.mapping_godot = (0, 1, 2)
         self.mapping_velocity_godot = (3, 4, 5)
+        # this is required since the original yml is defined in terms of dt with starting reference, not specific epoch
         del self.config.trajectory['timeline'][2]['point']['dt']  # '4 day'
         del self.config.trajectory['timeline'][2]['point']['reference']  # '4 day'
 
@@ -88,7 +89,6 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
         return tempo.Epoch(t) if epoch else t
 
     def function(self, state, noise=False, **kwargs) -> StateVector:
-        # time_interval_sec = kwargs['time_interval'].total_seconds()
         sv1 = state.state_vector  # state in cartesian coordiantes
         sv1_godot = self.stonesoup_to_godot(sv1)
         util.suppressLogger()
@@ -102,16 +102,11 @@ class GaussianTransitionGODOT(GaussianTransitionModel, TimeVariantModel):
         }
         # initialise the universe with a configuration in universe.yml
         universe = cosmos.Universe(self.config.universe)
-        # re-configure the trajectory.yml entries to fit the current propagation needs
 
+        # re-configure the trajectory.yml entries to fit the current propagation needs
         self.config.set_epoch(godot_times['current'])  # use the current time stamp to specify the epoch in trajectory.yml
         self.config.set_epoch_future(godot_times['overshoot'])  # specify the future epoch in trajectory.yml
         self.config.set_state_cart(sv1_godot)  # use the current state to specify the control point in trajectory.yml
-        # tra_cfg = self.config.trajectory
-        # current_time_str_scale = tra_cfg['timeline'][1]['epoch']  # '2020-01-01T00:00:00.000000 UTC'
-        # current_state_kepl_dict = tra_cfg['timeline'][1]['state'][0]['value']
-        # del self.config.trajectory['timeline'][2]['point']['dt']  # '4 day'
-        # del self.config.trajectory['timeline'][2]['point']['reference']  # '4 day'
         trajectory = cosmos.Trajectory(universe, self.config.trajectory)
         trajectory.compute(partials=True)
 
