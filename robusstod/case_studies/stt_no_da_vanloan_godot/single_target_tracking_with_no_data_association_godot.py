@@ -71,8 +71,8 @@ def main():
 
     from stonesoup.robusstod.stonesoup.models.transition_godot import GaussianTransitionGODOT
     transition_model = GaussianTransitionGODOT(
-        universe_path='universe_test.yml',
-        trajectory_path='trajectory_test.yml',
+        universe_path='../../universe_test.yml',
+        trajectory_path='../../trajectory_test.yml',
         noise_diff_coeff=0.05
     )
     cart_godot = np.array([-4685.75946803037,

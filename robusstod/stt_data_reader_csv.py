@@ -47,6 +47,13 @@ from stonesoup.base import Property
 from stonesoup.types.state import State
 import copy
 
+# debugging
+from stonesoup.robusstod.utils import true_state_metadata_extraction
+from stonesoup.robusstod.utils import station_metadata_extraction
+from stonesoup.robusstod import enu2ecef
+import matplotlib.cm as cm
+
+
 use_godot = False
 if use_godot:
     try:
@@ -191,6 +198,9 @@ def do_single_target_tracking(prior=None, predictor=None, updater=None, measurem
     plt.plot(0, 0, marker='d', color='k')
     measurement_predictions = []
     plt.gca().set_aspect('equal', 'box')
+    plt.gca().set_xlabel('X')
+    plt.gca().set_ylabel('Y')
+    plt.gca().set_zlabel('Z')
     min_long_interval = dt.timedelta(minutes=5)
     error_log = pd.DataFrame(columns=['TIMESTAMP', 'ERROR_POS', 'ERROR_VEL', 'GROUND_TRUTH', 'INFERENCE', 'ORIGIN'])
     from stonesoup.measures import Euclidean
@@ -282,27 +292,84 @@ def do_single_target_tracking(prior=None, predictor=None, updater=None, measurem
                         # # zpred.append(prediction.state_vector[mapping[2]])
                     print()
 
-        plot_detection3D(measurement, mapping=mapping, ax=ax, markersize=0.5)
 
         prediction = predictor.predict(prior, timestamp=measurement.timestamp)
 
-        if batch_counter > 2:
-            cov_shrink = 1  # 0.1 also works
-            prediction.covar = cov_shrink * prediction.covar
-            ax.plot(*prediction.state_vector[mapping, :], marker='x', color='grey', markersize=3)
-            ax.plot(*measurement.measurement_model.translation_offset, marker='.', color='g', markersize=3)
+        # # if batch_counter > 2:
+        # #     true_state = true_state_metadata_extraction(measurement)
+        # #     # measurement.state_vector = measurement.measurement_model.function(true_state)
+        # #     # measurement.state_vector = measurement.measurement_model.function(prediction)
+        # #     # measurement.state_vector[1] = measurement.state_vector[1] + np.pi
+        # #     # print(f'Substituting the detection by prediction-generated detection.')
+        # #     # prediction.covar = np.diag(prediction.covar.diagonal()) * 0.001
+        # #     from stonesoup.robusstod.stonesoup.updater import UnscentedKalmanUpdater
+        # #     updater_experiment = UnscentedKalmanUpdater(beta=2, kappa=30)
+        # #     # updater_experiment = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=10, beta=2, kappa=30)
+        # #     measurement_old = copy.deepcopy(measurement)
+        # #     orig_meas = copy.deepcopy(measurement)
+        # #     true_state = true_state_metadata_extraction(measurement_old)
+        # #     # prediction.state_vector = true_state.state_vector
+        # #     ax.plot(*prediction.state_vector[mapping, :], 'm+')
+        # #     ax.plot(*true_state.state_vector[mapping, :], 'k+')
+        # #     ax.plot(*orig_meas.measurement_model.translation_offset, 'r+', markersize=4)
+        # #
+        # #     values = np.arange(-1000000, 1000000, 5000)[::-1]
+        # #     dists = []
+        # #     bears = []
+        # #     elevs = []
+        # #     rs = []
+        # #     colors = cm.rainbow(np.linspace(0, 0.3, len(values)))
+        # #     for dvalue, c in zip(values, colors):
+        # #         print(dvalue)
+        # #         measurement = move_sensor(orig_meas, delta=[dvalue, -dvalue, 0])
+        # #         elevs.append(measurement.state_vector[0])
+        # #         bears.append(measurement.state_vector[1])
+        # #         rs.append(measurement.state_vector[2])
+        # #         hypothesis = SingleHypothesis(prediction, measurement)
+        # #         post = updater_experiment.update(hypothesis)
+        # #         ax.plot(*post.state_vector[mapping, :], marker='+', color=c, markersize=5)
+        # #         ax.plot(*measurement.measurement_model.translation_offset, marker='+', color='g', markersize=2)
+        # #         dist = Euclidean()(true_state, post)
+        # #         dists.append(dist)
+        # #         plt.pause(0.001)
+        # #
+        # #     fig1, (ax1, ax2, ax3, ax4) = plt.subplots(nrows=4, ncols=1)
+        # #     # fig1.suptitle('Estimation error in IPLF with max. 5 iterations')
+        # #     fig1.suptitle('Estimation error in UKF')
+        # #     ax1.plot(values, np.rad2deg(elevs)); ax1.set_xticklabels([])
+        # #     ax1.set_ylabel("z elevation")
+        # #     ax2.plot(values, np.rad2deg(bears)); ax2.set_xticklabels([])
+        # #     ax2.set_ylabel("z bearing")
+        # #     ax3.plot(values, rs, label='z range'); ax3.set_xticklabels([])
+        # #     ax3.set_ylabel("z range")
+        # #     ax4.plot(values, dists)
+        # #     ax4.set_ylabel("Error")
+        # #     ax4.set_xlabel("Sensor's displacement (in x-y) from its original location")
+        # #     ax4.set_ylim((-10000, 1479447.77576342))
+        #
+        #
+        #
+        #     cov_shrink = 1  # 0.1 also works
+        #     prediction.covar = cov_shrink * prediction.covar
+        #     ax.plot(*prediction.state_vector[mapping, :], marker='x', color='grey', markersize=5)
+        #     ax.plot(*measurement.measurement_model.translation_offset, marker='.', color='g', markersize=3)
+        #     pred_meas = measurement.measurement_model.function(prediction, noise=False)
+        #     recovered_state = measurement.measurement_model.inverse_function(Detection(state_vector=pred_meas))
+        #     # ax.plot(*recovered_state[mapping, :], marker='+', color='g', markersize=5)
+        #     print()
+
+        plot_detection3D(measurement, mapping=mapping, ax=ax, markersize=1)
 
         previous_timestamp = measurement.timestamp
         hypothesis = SingleHypothesis(prediction, measurement)  # Group a prediction and measurement
+
         # print(measurement.state_vector[0])
 
         time_of_interest = datetime(2023, 8, 17, 22, 20, 36, 549000)
-        time_of_interest = datetime(2023, 8, 18, 9, 43, 6, 740000)
-        md = hypothesis.measurement.metadata
-        true_state = State(state_vector=StateVector([float(md['TRUE_X']) * 1000, float(md['TRUE_VX']) * 1000,
-                                                         float(md['TRUE_Y']) * 1000, float(md['TRUE_VY']) * 1000,
-                                                         float(md['TRUE_Z']) * 1000, float(md['TRUE_VZ']) * 1000]),
-                           timestamp=measurement.timestamp)
+        time_of_interest = datetime(2023, 8, 18, 9, 43, 6, 740000)  # 3rd
+        # time_of_interest = datetime(2023, 8, 17, 22, 19, 24, 549000)  # 2nd
+        # time_of_interest = datetime(2023, 8, 17, 10, 4, 52, 903000)  # 1st
+        true_state = true_state_metadata_extraction(hypothesis.measurement)
         measurement_gen = measurement.measurement_model.function(true_state)
         measurement_gen_pred = measurement.measurement_model.function(prediction)
         # print(measurement.timestamp)
@@ -608,6 +675,48 @@ class CSVDetectionReader(DetectionReader, _CSVReader):
                 return prior
 
 
+def move_sensor(measurement, delta=None):
+    measurement = copy.deepcopy(measurement)
+    if delta is None:
+        delta = [0, 0, 0]
+
+    md = measurement.metadata
+    target_ecef = State(state_vector=StateVector([float(md['TRUE_X']) * 1000, float(md['TRUE_VX']) * 1000,
+                                                  float(md['TRUE_Y']) * 1000, float(md['TRUE_VY']) * 1000,
+                                                  float(md['TRUE_Z']) * 1000, float(md['TRUE_VZ']) * 1000]),
+                        timestamp=measurement.timestamp)
+
+    station_ecef = measurement.measurement_model.translation_offset
+    for i in range(3):
+        station_ecef[i] = station_ecef[i] + delta[i]
+
+    mapping = measurement.measurement_model.mapping
+    translation_offset = station_ecef
+    station_ecef_6d = 6 * [0]
+    station_ecef_6d[::2] = station_ecef
+    rotation_offset = CSVDetectionReader._get_rotation_offset(StateVector(station_ecef_6d), mapping)
+    velocity = measurement.measurement_model.velocity
+    #TODO: not sure how to deal with the velocity information, as it's not clear how to obtain it
+    measurement_model = copy.deepcopy(measurement.measurement_model)
+    measurement_model.translation_offset = translation_offset
+    measurement_model.rotation_offset = rotation_offset
+
+    # target_state_vector = 6 * [0]
+    # target_state_vector[::2] = target_ecef
+    md_new = copy.deepcopy(md)
+    md_new['XSTAT_X'] = str(station_ecef[0] / 1000)
+    md_new['XSTAT_Y'] = str(station_ecef[1] / 1000)
+    md_new['XSTAT_Z'] = str(station_ecef[2] / 1000)
+    measurement_new = Detection(
+        state_vector=measurement_model.function(target_ecef, noise=False),
+        timestamp=measurement.timestamp,
+        measurement_model=measurement_model,
+        metadata=md_new
+    )
+
+    return measurement_new
+
+
 def main():
     np.random.seed(1991)
     # start_time = datetime(2000, 1, 1)
@@ -650,7 +759,7 @@ def main():
     # parameters for RR01
     sigma_r = 20  # Range: 20.0 m
     sigma_a = np.deg2rad(400*0.001)  # Azimuth - elevation: 400.0 mdeg
-    sigma_rr = 650.0 + 0 * 650.0 * 0.001  # Range-rate: 650.0 mm/s
+    sigma_rr = 10**10 + 0 * 650.0 * 0.001  # Range-rate: 650.0 mm/s
     sigma_el, sigma_b, sigma_range, sigma_range_rate = sigma_a, sigma_a, sigma_r, sigma_rr
     # sensor_x, sensor_y, sensor_z = 0, 0, 0
     noise_covar = CovarianceMatrix(np.diag([sigma_el ** 2, sigma_b ** 2, sigma_range ** 2, sigma_range_rate ** 2]))
@@ -669,6 +778,10 @@ def main():
         noise_covar=sensor_parameters['noise_covar']
     )
     path = "src/csv/RR01_data_Doppler.csv"
+    path = "src/csv/RR01_data_Doppler_00039451.csv"
+    # path = "src/csv/RR01_data_self_00039451.csv"
+    # path = "src/csv/RR01_data_Doppler_00042063.csv"
+    # path = "src/csv/RR01_data_Doppler_00055165.csv"
     from pathlib import Path
 
     filters = {'STATION': 'RR01',
@@ -679,7 +792,7 @@ def main():
         state_vector_fields=measurement_fields,
         time_field="TIME",
         filters=filters,
-        max_datapoints=50,
+        max_datapoints=50000,
         measurement_model=measurement_model
     )
     path_oem = "src/csv/oem_00039451.csv"
@@ -745,8 +858,12 @@ def main():
 
     # Here we finally specify how the filtering recursion is implemented
     predictor_ekf = ExtendedKalmanPredictor(transition_model)
-    predictor_ukf = UnscentedKalmanPredictor(transition_model)
-    updater_iplf = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5, alpha=0.45)  # Using default values
+    predictor_ukf = UnscentedKalmanPredictor(transition_model, beta=2, kappa=30)
+    # updater_iplf = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5)  # Using default values
+    # updater_iplf = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5,
+    #                                  beta=2, kappa=30)
+    updater_iplf = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=5,
+                                     beta=2, kappa=30)
     updater_iekf = IteratedKalmanUpdater(max_iterations=5)
 
     # Perform tracking/filtering/smooting

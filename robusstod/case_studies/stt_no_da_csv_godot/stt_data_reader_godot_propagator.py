@@ -6,6 +6,9 @@ Tracking a single orbiting object with no detection failures (no false alarms an
 This is a demonstration using the implemented IEKF/IPLF/IPLS algorithms in the context of space situation awareness.
 It can use either built-in model of acceleration or GODOT's capability to evaluate acceleration.
 """
+
+# TODO: update solmag.ipf in the universe
+
 import pandas as pd
 
 from stonesoup.types.angle import Bearing, Elevation
@@ -271,7 +274,7 @@ def do_single_target_tracking(prior=None, predictor=None, updater=None, measurem
                             }
                             error_log.loc[len(error_log)] = new_row
 
-                        if counter % 1000 == 0:
+                        if counter % 1 == 0:
                             ax.plot(*true_state.state_vector[mapping, :], marker='.', color='green', markersize=0.5)
                             ax.plot(*pred_state.state_vector[mapping, :], marker='o', color='grey', markersize=0.5)
                             # ax.text(*true_state.state_vector[mapping, :], str(counter), fontsize=0.5)
@@ -296,57 +299,57 @@ def do_single_target_tracking(prior=None, predictor=None, updater=None, measurem
 
         prediction = predictor.predict(prior, timestamp=measurement.timestamp)
 
-        # # if batch_counter > 2:
-        # #     true_state = true_state_metadata_extraction(measurement)
-        # #     # measurement.state_vector = measurement.measurement_model.function(true_state)
-        # #     # measurement.state_vector = measurement.measurement_model.function(prediction)
-        # #     # measurement.state_vector[1] = measurement.state_vector[1] + np.pi
-        # #     # print(f'Substituting the detection by prediction-generated detection.')
-        # #     # prediction.covar = np.diag(prediction.covar.diagonal()) * 0.001
-        # #     from stonesoup.robusstod.stonesoup.updater import UnscentedKalmanUpdater
-        # #     updater_experiment = UnscentedKalmanUpdater(beta=2, kappa=30)
-        # #     # updater_experiment = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=10, beta=2, kappa=30)
-        # #     measurement_old = copy.deepcopy(measurement)
-        # #     orig_meas = copy.deepcopy(measurement)
-        # #     true_state = true_state_metadata_extraction(measurement_old)
-        # #     # prediction.state_vector = true_state.state_vector
-        # #     ax.plot(*prediction.state_vector[mapping, :], 'm+')
-        # #     ax.plot(*true_state.state_vector[mapping, :], 'k+')
-        # #     ax.plot(*orig_meas.measurement_model.translation_offset, 'r+', markersize=4)
-        # #
-        # #     values = np.arange(-1000000, 1000000, 5000)[::-1]
-        # #     dists = []
-        # #     bears = []
-        # #     elevs = []
-        # #     rs = []
-        # #     colors = cm.rainbow(np.linspace(0, 0.3, len(values)))
-        # #     for dvalue, c in zip(values, colors):
-        # #         print(dvalue)
-        # #         measurement = move_sensor(orig_meas, delta=[dvalue, -dvalue, 0])
-        # #         elevs.append(measurement.state_vector[0])
-        # #         bears.append(measurement.state_vector[1])
-        # #         rs.append(measurement.state_vector[2])
-        # #         hypothesis = SingleHypothesis(prediction, measurement)
-        # #         post = updater_experiment.update(hypothesis)
-        # #         ax.plot(*post.state_vector[mapping, :], marker='+', color=c, markersize=5)
-        # #         ax.plot(*measurement.measurement_model.translation_offset, marker='+', color='g', markersize=2)
-        # #         dist = Euclidean()(true_state, post)
-        # #         dists.append(dist)
-        # #         plt.pause(0.001)
-        # #
-        # #     fig1, (ax1, ax2, ax3, ax4) = plt.subplots(nrows=4, ncols=1)
-        # #     # fig1.suptitle('Estimation error in IPLF with max. 5 iterations')
-        # #     fig1.suptitle('Estimation error in UKF')
-        # #     ax1.plot(values, np.rad2deg(elevs)); ax1.set_xticklabels([])
-        # #     ax1.set_ylabel("z elevation")
-        # #     ax2.plot(values, np.rad2deg(bears)); ax2.set_xticklabels([])
-        # #     ax2.set_ylabel("z bearing")
-        # #     ax3.plot(values, rs, label='z range'); ax3.set_xticklabels([])
-        # #     ax3.set_ylabel("z range")
-        # #     ax4.plot(values, dists)
-        # #     ax4.set_ylabel("Error")
-        # #     ax4.set_xlabel("Sensor's displacement (in x-y) from its original location")
-        # #     ax4.set_ylim((-10000, 1479447.77576342))
+        # if batch_counter > 2:
+        #     true_state = true_state_metadata_extraction(measurement)
+        #     # measurement.state_vector = measurement.measurement_model.function(true_state)
+        #     # measurement.state_vector = measurement.measurement_model.function(prediction)
+        #     # measurement.state_vector[1] = measurement.state_vector[1] + np.pi
+        #     # print(f'Substituting the detection by prediction-generated detection.')
+        #     # prediction.covar = np.diag(prediction.covar.diagonal()) * 0.001
+        #     from stonesoup.robusstod.stonesoup.updater import UnscentedKalmanUpdater
+        #     updater_experiment = UnscentedKalmanUpdater(beta=2, kappa=30)
+        #     # updater_experiment = IPLFKalmanUpdater(tolerance=1e-1, max_iterations=10, beta=2, kappa=30)
+        #     measurement_old = copy.deepcopy(measurement)
+        #     orig_meas = copy.deepcopy(measurement)
+        #     true_state = true_state_metadata_extraction(measurement_old)
+        #     # prediction.state_vector = true_state.state_vector
+        #     ax.plot(*prediction.state_vector[mapping, :], 'm+')
+        #     ax.plot(*true_state.state_vector[mapping, :], 'k+')
+        #     ax.plot(*orig_meas.measurement_model.translation_offset, 'r+', markersize=4)
+        #
+        #     values = np.arange(-1000000, 1000000, 5000)[::-1]
+        #     dists = []
+        #     bears = []
+        #     elevs = []
+        #     rs = []
+        #     colors = cm.rainbow(np.linspace(0, 0.3, len(values)))
+        #     for dvalue, c in zip(values, colors):
+        #         print(dvalue)
+        #         measurement = move_sensor(orig_meas, delta=[dvalue, -dvalue, 0])
+        #         elevs.append(measurement.state_vector[0])
+        #         bears.append(measurement.state_vector[1])
+        #         rs.append(measurement.state_vector[2])
+        #         hypothesis = SingleHypothesis(prediction, measurement)
+        #         post = updater_experiment.update(hypothesis)
+        #         ax.plot(*post.state_vector[mapping, :], marker='+', color=c, markersize=5)
+        #         ax.plot(*measurement.measurement_model.translation_offset, marker='+', color='g', markersize=2)
+        #         dist = Euclidean()(true_state, post)
+        #         dists.append(dist)
+        #         plt.pause(0.001)
+        #
+        #     fig1, (ax1, ax2, ax3, ax4) = plt.subplots(nrows=4, ncols=1)
+        #     # fig1.suptitle('Estimation error in IPLF with max. 5 iterations')
+        #     fig1.suptitle('Estimation error in UKF')
+        #     ax1.plot(values, np.rad2deg(elevs)); ax1.set_xticklabels([])
+        #     ax1.set_ylabel("z elevation")
+        #     ax2.plot(values, np.rad2deg(bears)); ax2.set_xticklabels([])
+        #     ax2.set_ylabel("z bearing")
+        #     ax3.plot(values, rs, label='z range'); ax3.set_xticklabels([])
+        #     ax3.set_ylabel("z range")
+        #     ax4.plot(values, dists)
+        #     ax4.set_ylabel("Error")
+        #     ax4.set_xlabel("Sensor's displacement (in x-y) from its original location")
+        #     ax4.set_ylim((-10000, 1479447.77576342))
         #
         #
         #
@@ -784,11 +787,14 @@ def main():
     # path = "src/csv/RR01_data_Doppler_00042063.csv"
     # path = "src/csv/RR01_data_Doppler_00055165.csv"
     path = "data.csv"
+    path = "../../src/csv/RR01_data_Doppler_00042063.csv"
 
     from pathlib import Path
 
     filters = {'STATION': 'RR01',
                'TARGET_ID': '00039451'}  # targets: 00055165, 00039451
+    filters = {'STATION': 'RR01',
+               'TARGET_ID': '00042063'}
     measurement_fields = ("ANGLE_2", "ANGLE_1", "RANGE", "DOPPLER_INSTANTANEOUS")
     detector = CSVDetectionReader(
         path=path,
@@ -798,7 +804,7 @@ def main():
         max_datapoints=50000,
         measurement_model=measurement_model
     )
-    path_oem = "../src/csv/oem_00039451.csv"
+    path_oem = "../../src/csv/oem_00039451.csv"
     state_vector_fields = ('X', 'XDOT', 'Y', 'YDOT', 'Z', 'ZDOT')
     clairvoyant = CSVTruthReader(
         path=path_oem,
@@ -814,7 +820,7 @@ def main():
     transition_model = GaussianTransitionGODOT(
         universe_path='universe_tds.yml',
         trajectory_path='trajectory_tds.yml',
-        noise_diff_coeff=0.00005,
+        noise_diff_coeff=0.05,
         timescale='TAI'
     )
 
@@ -856,7 +862,8 @@ def main():
     for measurement in detector.detections_gen():
         counter += 1
         if counter == 1:
-            continue
+            # continue
+            pass
         measurements.append(measurement)
 
 
