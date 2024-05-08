@@ -12,7 +12,7 @@ sensor_state = State(state_vector=[0, 10, 0, 0, 0, 0])
 # sensor_state = State(state_vector=[0, 0, 0, 0, 0, 0])
 
 # Measurement model
-sensor_velocity = StateVector(sensor_state.state_vector[[velocity_mapping]][0])
+sensor_velocity = StateVector(sensor_state.state_vector[velocity_mapping, :])
 measurement_model = CartesianToElevationBearingRangeRate(
     ndim_state=6,
     mapping=mapping,
